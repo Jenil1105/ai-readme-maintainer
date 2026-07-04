@@ -2,12 +2,13 @@ import { buildContext } from "./context/builder.js";
 import { analyze } from "./analyzer/analyzer.js";
 
 async function main() {
+
     const context = buildContext();
 
     const result = await analyze(context);
 
-    console.log("\nAnalysis Result");
     console.log(result);
+
 }
 
 main().catch((err) => {

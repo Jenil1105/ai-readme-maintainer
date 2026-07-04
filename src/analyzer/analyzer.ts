@@ -1,19 +1,53 @@
+import { GoogleGenAI, Type } from "@google/genai";
+import { readFileSync } from "node:fs";
+
 import { RepositoryContext } from "../context/types.js";
 import { AnalysisResult } from "./types.js";
+
+const ai = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY!,
+});
 
 export async function analyze(
     context: RepositoryContext
 ): Promise<AnalysisResult> {
-    console.log("Running analyzer...");
 
-    // Mock implementation for now
-    return {
-        needsUpdate: true,
-        reason: "Mock analysis completed.",
-        updatePrompt: `
-Update the README based on the latest code changes.
-Document all newly added features.
-Do not modify unrelated sections.
-`,
-    };
+    let prompt = readFileSync("src/prompts/analyze.md", "utf-8");
+
+    prompt = prompt
+        .replace("{{README}}", context.readme)
+        .replace("{{CHANGED_FILES}}", context.changedFiles.join("\n"))
+        .replace("{{GIT_DIFF}}", context.gitDiff);
+
+    const response = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: prompt,
+    config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+            needsUpdate: {
+            type: Type.BOOLEAN,
+            },
+            reason: {
+            type: Type.STRING,
+            },
+            updatePrompt: {
+            type: Type.STRING,
+            },
+        },
+        required: ["needsUpdate", "reason", "updatePrompt"],
+        },
+    },
+    });
+
+    const text = response.text?.trim();
+    console.log(text)
+
+    if (!text) {
+        throw new Error("Gemini returned an empty response.");
+    }
+
+    return JSON.parse(text) as AnalysisResult;
 }

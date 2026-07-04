@@ -1,14 +1,13 @@
 import { buildContext } from "./context/builder.js";
+import { analyze } from "./analyzer/analyzer.js";
 
 async function main() {
-    console.log("AI README Maintainer");
-
     const context = buildContext();
 
-    console.log(context.changedFiles);
+    const result = await analyze(context);
 
-    console.log("\nREADME Preview:");
-    console.log(context.readme.substring(0, 200));
+    console.log("\nAnalysis Result");
+    console.log(result);
 }
 
 main().catch((err) => {

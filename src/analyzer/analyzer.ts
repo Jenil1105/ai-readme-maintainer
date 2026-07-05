@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { readFileSync } from "node:fs";
+import {analysisSchema} from "./schema";
 
 import { RepositoryContext } from "../context/types.js";
 import { AnalysisResult } from "./types.js";
@@ -24,21 +25,7 @@ export async function analyze(
     contents: prompt,
     config: {
         responseMimeType: "application/json",
-        responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-            needsUpdate: {
-            type: Type.BOOLEAN,
-            },
-            reason: {
-            type: Type.STRING,
-            },
-            updatePrompt: {
-            type: Type.STRING,
-            },
-        },
-        required: ["needsUpdate", "reason", "updatePrompt"],
-        },
+        responseSchema: analysisSchema,
     },
     });
 

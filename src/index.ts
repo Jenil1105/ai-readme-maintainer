@@ -1,14 +1,29 @@
-import { buildContext } from "./context/builder.js";
+import { writeFileSync } from "node:fs";
+
 import { analyze } from "./analyzer/analyzer.js";
+import { buildContext } from "./context/builder.js";
+import { updateReadme } from "./updater/updater.js";
 
 async function main() {
-
     const context = buildContext();
 
-    const result = await analyze(context);
+    const analysis = await analyze(context);
 
-    console.log(result);
+    console.log(analysis);
 
+    if (!analysis.needsUpdate) {
+        console.log("README is already up to date.");
+        return;
+    }
+
+    const updatedReadme = await updateReadme(
+        context.readme,
+        analysis.updatePrompt
+    );
+
+    writeFileSync("README.generated.md", updatedReadme);
+
+    console.log("Updated README written to README.generated.md");
 }
 
 main().catch((err) => {

@@ -258,30 +258,31 @@ ai-readme-maintainer/
 
 Implemented:
 
-* ✅ TypeScript project setup
-* ✅ Context Builder
-* ✅ Repository context model
-* ✅ Gemini Analyzer
-* ✅ Structured JSON responses
-* ✅ Prompt templates
-* ✅ README Updater
-* ✅ End-to-end AI pipeline
+*   ✅ TypeScript project setup
+*   ✅ Context Builder
+*   ✅ Repository context model
+*   ✅ Gemini Analyzer
+*   ✅ Structured JSON responses
+*   ✅ Prompt templates
+*   ✅ README Updater
+*   ✅ End-to-end AI pipeline
+*   ✅ Branch creation (via git CLI)
+*   ✅ Automatic commits (to new branch)
+*   ✅ Push to new branch (via git CLI)
 
 In Progress:
 
-* 🚧 Improve prompt quality
-* 🚧 Better update instructions
-* 🚧 More accurate README generation
+*   🚧 Improve prompt quality
+*   🚧 Better update instructions
+*   🚧 More accurate README generation
+*   🚧 GitHub Action integration (core git operations implemented)
 
 Planned:
 
-* GitHub Action integration
-* Branch creation
-* Automatic commits
-* Pull request creation
-* Validation layer
-* Configurable AI providers
-* Marketplace release
+*   Pull request creation
+*   Validation layer
+*   Configurable AI providers
+*   Marketplace release
 
 ---
 

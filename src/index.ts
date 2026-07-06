@@ -4,6 +4,7 @@ import { analyze } from "./analyzer/analyzer.js";
 import { buildContext } from "./context/builder.js";
 import { updateReadme } from "./updater/updater.js";
 import { createBranch, commit, push } from "./git/git.js"
+import { createPullRequest } from "./git/pullRequest.js";
 
 async function main() {
     const context = buildContext();
@@ -38,8 +39,18 @@ async function main() {
 
     console.log("Changes pushed successfully.");
 
-        console.log("Updated README written to README.generated.md");
-    }
+    const repository = process.env.GITHUB_REPOSITORY!;
+
+    const [owner, repo] = repository.split("/");
+
+    await createPullRequest(
+        owner,
+        repo,
+        branch,
+        process.env.GITHUB_REF_NAME ?? "main"
+    );
+    
+}
 
 main().catch((err) => {
     console.error(err);

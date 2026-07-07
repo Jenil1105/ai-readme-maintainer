@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "build": "tsup src/index.ts --format cjs --platform node --out-dir dist",
+    "build": "tsup",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js"
   },

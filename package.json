@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "ncc build src/index.ts -o dist",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js"
   },
@@ -27,6 +27,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.1.0",
+    "@vercel/ncc": "^0.44.1",
     "tsx": "^4.23.0",
     "typescript": "^6.0.3"
   }

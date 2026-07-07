@@ -1,0 +1,26 @@
+name: Test AI README Maintainer
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Run AI README Maintainer
+        uses: ./
+        with:
+          github-token: ${{ secrets.ACCESS_TOKEN }}
+          gemini-api-key: ${{ secrets.GEMINI_API_KEY }}

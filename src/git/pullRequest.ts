@@ -1,7 +1,10 @@
 import { Octokit } from "@octokit/rest";
+import * as core from "@actions/core";
+
+const githubToken = core.getInput("github-token");
 
 const octokit = new Octokit({
-    auth: process.env.GITHUB_TOKEN,
+    auth: githubToken,
 });
 
 export async function createPullRequest(

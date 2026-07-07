@@ -1,0 +1,15 @@
+name: AI README Maintainer
+description: Automatically updates README using Gemini AI
+
+inputs:
+  github-token:
+    description: GitHub Token
+    required: true
+
+  gemini-api-key:
+    description: Gemini API Key
+    required: true
+
+runs:
+  using: node20
+  main: dist/index.js

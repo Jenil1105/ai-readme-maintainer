@@ -4,9 +4,12 @@ import {analysisSchema} from "./schema";
 
 import { RepositoryContext } from "../context/types.js";
 import { AnalysisResult } from "./types.js";
+import * as core from "@actions/core";
+
+const geminiApiKey = core.getInput("gemini-api-key");
 
 const ai = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY!,
+    apiKey: geminiApiKey!,
 });
 
 export async function analyze(

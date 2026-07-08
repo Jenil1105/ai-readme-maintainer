@@ -269,6 +269,7 @@ Implemented:
 *   ✅ Branch creation (via git CLI)
 *   ✅ Automatic commits (to new branch)
 *   ✅ Push to new branch (via git CLI)
+*   ✅ Pull request creation
 
 In Progress:
 
@@ -279,7 +280,6 @@ In Progress:
 
 Planned:
 
-*   Pull request creation
 *   Validation layer
 *   Configurable AI providers
 *   Marketplace release

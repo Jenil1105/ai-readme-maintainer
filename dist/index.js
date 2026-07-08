@@ -62698,6 +62698,8 @@ function createBranch(name) {
   (0, import_node_child_process2.execSync)(`git checkout -b ${name}`, { stdio: "inherit" });
 }
 function commit(message) {
+  (0, import_node_child_process2.execSync)('git config user.name "github-actions[bot]"');
+  (0, import_node_child_process2.execSync)('git config user.email "41898282+github-actions[bot]@users.noreply.github.com"');
   (0, import_node_child_process2.execSync)("git add README.md", { stdio: "inherit" });
   (0, import_node_child_process2.execSync)(`git commit -m "${message}"`, { stdio: "inherit" });
 }

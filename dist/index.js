@@ -62644,15 +62644,23 @@ async function analyze(context) {
 // src/context/builder.ts
 var import_node_child_process = require("child_process");
 var import_node_fs3 = require("fs");
+var ignoredPaths = [
+  "dist/",
+  "node_modules/",
+  ".git/"
+];
 function buildContext() {
   const changedFiles = (0, import_node_child_process.execSync)(
     "git diff --name-only HEAD~1 HEAD",
     { encoding: "utf-8" }
-  ).trim().split("\n").filter(Boolean);
-  const gitDiff = (0, import_node_child_process.execSync)(
-    "git diff HEAD~1 HEAD",
-    { encoding: "utf-8" }
+  ).trim().split("\n").filter(Boolean).filter(
+    (file) => !ignoredPaths.some((path2) => file.startsWith(path2))
   );
+  const gitDiff = changedFiles.map(
+    (file) => (0, import_node_child_process.execSync)(`git diff HEAD~1 HEAD -- "${file}"`, {
+      encoding: "utf-8"
+    })
+  ).join("\n");
   let readme = "";
   if ((0, import_node_fs3.existsSync)("README.md")) {
     readme = (0, import_node_fs3.readFileSync)("README.md", "utf-8");

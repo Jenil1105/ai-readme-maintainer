@@ -279,7 +279,7 @@ In Progress:
 
 Planned:
 
-*   Pull request creation
+*   **Pull request creation**: Still planned, but the initial dedicated implementation (`src/git/pullRequest.ts`) has been removed. Creating pull requests within a GitHub Action will leverage GitHub's native APIs (e.g., Octokit) for more robust and integrated functionality, rather than a custom Git CLI wrapper. This functionality will be addressed as part of the broader GitHub Action integration.
 *   Validation layer
 *   Configurable AI providers
 *   Marketplace release

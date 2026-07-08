@@ -22,5 +22,5 @@ jobs:
       - name: Run AI README Maintainer
         uses: ./
         with:
-          github-token: ${{ secrets.ACCESS_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           gemini-api-key: ${{ secrets.GEMINI_API_KEY }}

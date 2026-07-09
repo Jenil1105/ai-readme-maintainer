@@ -19,19 +19,8 @@ export interface GitInfo {
 }
 
 export function getGitInfo(compareRef?: string): GitInfo {
-    const ref = compareRef || "HEAD~1";
-
-    const fileNames = execSync(`git diff --name-only ${ref} HEAD`, {
-        encoding: "utf-8",
-    })
-        .trim()
-        .split("\n")
-        .filter(Boolean)
-        .filter(
-            (file) =>
-                !ignoredPaths.some((path) => file.startsWith(path)) &&
-                !isGeneratedFile(file)
-        );
+    const ref = compareRef || getDefaultCompareRef();
+    const fileNames = getChangedFiles(ref);
 
     const changedFiles: ChangedFile[] = fileNames.map((file) => {
         const diff = execSync(`git diff ${ref} HEAD -- "${file}"`, {
@@ -74,17 +63,56 @@ export function getGitInfo(compareRef?: string): GitInfo {
     };
 }
 
+function getDefaultCompareRef(): string {
+    try {
+        execSync("git rev-parse --verify HEAD~1", { stdio: "pipe" });
+        return "HEAD~1";
+    } catch {
+        return "";
+    }
+}
+
+function getChangedFiles(ref: string): string[] {
+    if (!ref) {
+        return [];
+    }
+
+    try {
+        return execSync(`git diff --name-only ${ref} HEAD`, {
+            encoding: "utf-8",
+        })
+            .trim()
+            .split("\n")
+            .filter(Boolean)
+            .filter(
+                (file) =>
+                    !ignoredPaths.some((path) => file.startsWith(path)) &&
+                    !isGeneratedFile(file)
+            );
+    } catch {
+        return [];
+    }
+}
+
 function getChangeType(
     file: string,
     ref: string
 ): "added" | "modified" | "deleted" {
-    const status = execSync(`git diff --name-status ${ref} HEAD -- "${file}"`, {
-        encoding: "utf-8",
-    }).trim();
+    if (!ref) {
+        return "added";
+    }
 
-    if (status.startsWith("A")) return "added";
-    if (status.startsWith("D")) return "deleted";
-    return "modified";
+    try {
+        const status = execSync(`git diff --name-status ${ref} HEAD -- "${file}"`, {
+            encoding: "utf-8",
+        }).trim();
+
+        if (status.startsWith("A")) return "added";
+        if (status.startsWith("D")) return "deleted";
+        return "modified";
+    } catch {
+        return "modified";
+    }
 }
 
 function isGeneratedFile(filePath: string): boolean {

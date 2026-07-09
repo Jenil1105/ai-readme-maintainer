@@ -62788,12 +62788,8 @@ var ignoredPaths = [
   ".github/workflows/"
 ];
 function getGitInfo(compareRef) {
-  const ref = compareRef || "HEAD~1";
-  const fileNames = (0, import_node_child_process.execSync)(`git diff --name-only ${ref} HEAD`, {
-    encoding: "utf-8"
-  }).trim().split("\n").filter(Boolean).filter(
-    (file) => !ignoredPaths.some((path2) => file.startsWith(path2)) && !isGeneratedFile(file)
-  );
+  const ref = compareRef || getDefaultCompareRef();
+  const fileNames = getChangedFiles(ref);
   const changedFiles = fileNames.map((file) => {
     const diff = (0, import_node_child_process.execSync)(`git diff ${ref} HEAD -- "${file}"`, {
       encoding: "utf-8"
@@ -62828,13 +62824,42 @@ function getGitInfo(compareRef) {
     }
   };
 }
+function getDefaultCompareRef() {
+  try {
+    (0, import_node_child_process.execSync)("git rev-parse --verify HEAD~1", { stdio: "pipe" });
+    return "HEAD~1";
+  } catch {
+    return "";
+  }
+}
+function getChangedFiles(ref) {
+  if (!ref) {
+    return [];
+  }
+  try {
+    return (0, import_node_child_process.execSync)(`git diff --name-only ${ref} HEAD`, {
+      encoding: "utf-8"
+    }).trim().split("\n").filter(Boolean).filter(
+      (file) => !ignoredPaths.some((path2) => file.startsWith(path2)) && !isGeneratedFile(file)
+    );
+  } catch {
+    return [];
+  }
+}
 function getChangeType(file, ref) {
-  const status = (0, import_node_child_process.execSync)(`git diff --name-status ${ref} HEAD -- "${file}"`, {
-    encoding: "utf-8"
-  }).trim();
-  if (status.startsWith("A")) return "added";
-  if (status.startsWith("D")) return "deleted";
-  return "modified";
+  if (!ref) {
+    return "added";
+  }
+  try {
+    const status = (0, import_node_child_process.execSync)(`git diff --name-status ${ref} HEAD -- "${file}"`, {
+      encoding: "utf-8"
+    }).trim();
+    if (status.startsWith("A")) return "added";
+    if (status.startsWith("D")) return "deleted";
+    return "modified";
+  } catch {
+    return "modified";
+  }
 }
 function isGeneratedFile(filePath) {
   const generatedPatterns = [

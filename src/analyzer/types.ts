@@ -1,5 +1,7 @@
 export interface AnalysisResult {
     needsUpdate: boolean;
-    updatePrompt: string;
     reason: string;
+    updatePrompt: string;
+    severity?: "low" | "medium" | "high";
+    affectedSections?: string[];
 }

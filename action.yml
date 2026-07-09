@@ -3,12 +3,42 @@ description: Automatically updates README using Gemini AI
 
 inputs:
   github-token:
-    description: GitHub Token
+    description: GitHub Token for creating pull requests
     required: true
 
   gemini-api-key:
-    description: Gemini API Key
+    description: Gemini API Key for AI analysis
     required: true
+
+  model:
+    description: Gemini model to use
+    required: false
+    default: "gemini-2.5-flash"
+
+  branch-prefix:
+    description: Prefix for the created branch
+    required: false
+    default: "readme-ai"
+
+  commit-message:
+    description: Commit message for README updates
+    required: false
+    default: "docs: update README"
+
+  pr-title:
+    description: Title for the created pull request
+    required: false
+    default: "docs: update README"
+
+  base-branch:
+    description: Base branch for the pull request
+    required: false
+    default: "main"
+
+  dry-run:
+    description: Run analysis without creating PR
+    required: false
+    default: "false"
 
 runs:
   using: node24

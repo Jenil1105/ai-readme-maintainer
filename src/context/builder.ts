@@ -1,43 +1,14 @@
-import { execSync } from "node:child_process";
-import { readFileSync, existsSync } from "node:fs";
 import { RepositoryContext } from "./types.js";
+import { getGitInfo } from "./git.js";
+import { loadReadme } from "./readme.js";
 
-const ignoredPaths = [
-    "dist/",
-    "node_modules/",
-    ".git/",
-];
-
-export function buildContext(): RepositoryContext {
-
-    const changedFiles = execSync(
-        "git diff --name-only HEAD~1 HEAD",
-        { encoding: "utf-8" }
-    )
-        .trim()
-        .split("\n")
-        .filter(Boolean)
-        .filter(file =>
-            !ignoredPaths.some(path => file.startsWith(path))
-        );
-
-    const gitDiff = changedFiles
-        .map(file =>
-            execSync(`git diff HEAD~1 HEAD -- "${file}"`, {
-                encoding: "utf-8",
-            })
-        )
-        .join("\n");
-
-    let readme = "";
-
-    if (existsSync("README.md")) {
-        readme = readFileSync("README.md", "utf-8");
-    }
+export function buildContext(readmeFilePath?: string): RepositoryContext {
+    const gitInfo = getGitInfo();
+    const readme = loadReadme(readmeFilePath);
 
     return {
-        changedFiles,
-        gitDiff,
         readme,
+        changedFiles: gitInfo.changedFiles,
+        summary: gitInfo.summary,
     };
 }

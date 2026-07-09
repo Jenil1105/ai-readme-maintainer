@@ -1,307 +1,326 @@
 # AI README Maintainer
 
-> An AI-powered GitHub Action that automatically keeps project documentation up to date by analyzing code changes, determining whether the README requires updates, and generating documentation improvements through a pull request.
+[![GitHub Action](https://img.shields.io/badge/action-AI%20README-blue?logo=github)](https://github.com/Jenil1105/ai-readme-maintainer)
+[![Tests](https://img.shields.io/badge/tests-passing-brightgreen)](tests/)
+[![TypeScript](https://img.shields.io/badge/typescript-5.0%2B-blue)](tsconfig.json)
+[![License](https://img.shields.io/badge/license-ISC-blue)](LICENSE)
 
-> **Project Status:** 🚧 Early Development (Planner & Updater pipeline implemented)
+Automatically analyze your repository changes and generate intelligent README updates using Google's Gemini AI. This GitHub Action detects when documentation updates are needed and creates pull requests with AI-generated changes.
 
----
+## Features
 
-# Motivation
+- **Intelligent Analysis**: Uses Gemini 2.5 Flash to analyze code changes
+- **Smart Updates**: Only updates README when necessary
+- **Validation**: Comprehensive validation ensures README integrity
+- **Configurable**: Customize branch names, commit messages, and more
+- **Dry Run Mode**: Preview changes without creating PRs
+- **Error Handling**: Graceful error handling with meaningful logs
+- **Well-Tested**: Comprehensive test suite for reliability
 
-Keeping documentation synchronized with code is a common challenge in software projects. As repositories evolve, READMEs often become outdated because documentation updates are forgotten or postponed.
+## Quick Start
 
-AI README Maintainer aims to solve this problem automatically.
+### Installation
 
-Instead of blindly rewriting documentation after every commit, the project first determines **whether documentation actually needs to change**. Only when necessary does it generate an updated README.
-
-This minimizes unnecessary pull requests while ensuring documentation remains accurate.
-
----
-
-# Vision
-
-The long-term goal is to provide a reusable GitHub Action that works with **any GitHub repository**.
-
-A repository owner should eventually be able to install the action with minimal configuration and have documentation maintained automatically.
-
-Example:
+Add this action to your GitHub workflow:
 
 ```yaml
-- uses: <owner>/ai-readme-maintainer@v1
+name: Update README
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update README with AI
+        uses: Jenil1105/ai-readme-maintainer@v1
+        with:
+          gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-The action will:
+## Inputs
 
-1. Detect code changes.
-2. Analyze whether the README is affected.
-3. Generate only the required documentation changes.
-4. Create a new branch.
-5. Commit the updated README.
-6. Open a pull request for review.
+### Required Inputs
 
-The default branch is never modified directly.
+- **`gemini-api-key`** (string, required)  
+  Google Gemini API key for AI analysis. Get one from [Google AI Studio](https://aistudio.google.com/app/apikey)
 
----
+- **`github-token`** (string, required)  
+  GitHub token for creating pull requests. Use `${{ secrets.GITHUB_TOKEN }}`
 
-# Current Architecture
+### Optional Inputs
 
-The project currently implements the core AI pipeline.
+- **`model`** (string, default: `"gemini-2.5-flash"`)  
+  Gemini model version to use for analysis
 
-```text
-Repository
-    │
-    ▼
-Context Builder
-    │
-    ▼
-Repository Context
-    │
-    ▼
-AI Analyzer (Planner)
-    │
-    ├── No README update → Exit
-    │
-    └── README update required
-              │
-              ▼
-        AI Updater (Executor)
-              │
-              ▼
-      Generated README
+- **`branch-prefix`** (string, default: `"readme-ai"`)  
+  Prefix for automatically created branches (e.g., `readme-ai/abc1234-1234567890`)
+
+- **`commit-message`** (string, default: `"docs: update README"`)  
+  Message for the commit containing README changes
+
+- **`pr-title`** (string, default: `"docs: update README"`)  
+  Title for the created pull request
+
+- **`base-branch`** (string, default: `"main"`)  
+  Target branch for the pull request
+
+- **`dry-run`** (boolean, default: `"false"`)  
+  Run analysis without creating a pull request (preview changes)
+
+## Outputs
+
+The action provides information through GitHub Actions logging:
+
+- Repository analysis results
+- Files analyzed and statistics
+- README changes detected
+- PR creation status
+
+## Configuration Examples
+
+### Basic Setup
+
+```yaml
+- uses: Jenil1105/ai-readme-maintainer@v1
+  with:
+    gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
+    github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-The architecture intentionally separates **planning** from **execution**.
+### Advanced Configuration
 
----
-
-# Components
-
-## Context Builder
-
-The Context Builder is responsible only for collecting repository information.
-
-It does **not** make decisions.
-
-Currently it collects:
-
-* Changed files
-* Git diff
-* Current README
-
-Output:
-
-```ts
-interface RepositoryContext {
-    changedFiles: string[];
-    gitDiff: string;
-    readme: string;
-}
+```yaml
+- uses: Jenil1105/ai-readme-maintainer@v1
+  with:
+    gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    model: "gemini-2.5-flash"
+    branch-prefix: "docs"
+    commit-message: "chore: auto-update documentation"
+    pr-title: "Auto-generated documentation update"
+    base-branch: "main"
 ```
 
----
+### Dry Run Mode
 
-## Analyzer (Planner)
+Preview changes without creating a pull request:
 
-The Analyzer is the reasoning component.
-
-It receives the repository context and decides whether documentation needs to change.
-
-Responsibilities:
-
-* Analyze code changes
-* Compare changes with the current README
-* Decide if an update is required
-* Generate instructions for updating the README
-
-Output:
-
-```ts
-interface AnalysisResult {
-    needsUpdate: boolean;
-    reason: string;
-    updatePrompt: string;
-}
+```yaml
+- uses: Jenil1105/ai-readme-maintainer@v1
+  with:
+    gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    dry-run: "true"
 ```
 
-The analyzer **does not modify** the README.
+## Architecture
 
-Instead, it produces an update plan.
-
----
-
-## Updater (Executor)
-
-The Updater consumes:
-
-* Current README
-* Update instructions generated by the Analyzer
-
-Its only responsibility is rewriting the README according to those instructions.
-
-It does **not** analyze code changes.
-
-This separation makes the system easier to maintain and reduces duplicate reasoning.
-
----
-
-# AI Workflow
-
-The project follows a two-stage AI workflow.
-
-## Stage 1 — Planning
-
-Inputs:
-
-* Current README
-* Git diff
-* Changed files
-
-Output:
-
-```json
-{
-  "needsUpdate": true,
-  "reason": "...",
-  "updatePrompt": "..."
-}
-```
-
----
-
-## Stage 2 — Execution
-
-Inputs:
-
-* Existing README
-* Update prompt
-
-Output:
-
-* Updated README
-
----
-
-# Why Two AI Stages?
-
-Instead of asking one model to both decide and rewrite documentation, the responsibilities are separated.
-
-Benefits include:
-
-* Lower token usage
-* Cleaner architecture
-* Deterministic execution
-* Easier debugging
-* Reusable update instructions
-* Better maintainability
-
-The Updater never needs to inspect repository changes because the Analyzer has already produced a complete update plan.
-
----
-
-# Prompt Design
-
-Prompts are stored separately from application logic.
+The action follows a modular architecture with clear separation of concerns:
 
 ```
-prompts/
-├── analyze.md
-└── update.md
+Repository Push
+    ↓
+Context Builder (collects files, diffs, README)
+    ↓
+Gemini Analyzer (determines if update needed)
+    ↓
+    ├─→ No Update Needed → Exit
+    ↓
+README Updater (generates new README)
+    ↓
+Validator (ensures README integrity)
+    ↓
+Git Operations (branch, commit, push)
+    ↓
+Pull Request Creator (opens PR for review)
 ```
 
-Advantages:
-
-* Easier iteration
-* Cleaner codebase
-* Prompt changes without modifying TypeScript
-* Better experimentation
-
----
-
-# AI Provider
-
-The current implementation uses **Google Gemini**.
-
-Reasons:
-
-* Generous free tier
-* Fast responses
-* Structured JSON output
-* Suitable for open-source contributors
-
-The Analyzer uses Gemini's structured response schema to ensure reliable JSON output rather than relying solely on prompt instructions.
-
----
-
-# Current Project Structure
+### Project Structure
 
 ```
-ai-readme-maintainer/
+src/
+├── ai/                    # AI client and prompts
+│   ├── gemini.ts         # Gemini API client
+│   ├── promptLoader.ts   # Prompt loading and caching
+│   └── types.ts          # AI-related types
 │
-├── src/
-│   ├── analyzer/
-│   ├── context/
-│   ├── updater/
-│   └── index.ts
+├── analyzer/             # Repository analysis
+│   ├── analyzer.ts       # Main analyzer logic
+│   ├── schema.ts         # Response schemas
+│   └── types.ts          # Analysis types
 │
-├── prompts/
-│   ├── analyze.md
-│   └── update.md
+├── context/              # Context building
+│   ├── builder.ts        # Context assembly
+│   ├── git.ts            # Git information extraction
+│   ├── readme.ts         # README handling
+│   └── types.ts          # Context types
 │
-├── package.json
-├── tsconfig.json
-└── README.md
+├── updater/              # README updating
+│   └── updater.ts        # Update generation
+│
+├── validator/            # Update validation
+│   ├── validator.ts      # Validation logic
+│   └── types.ts          # Validation types
+│
+├── git/                  # Git operations
+│   ├── git.ts            # Git commands
+│   └── pullRequest.ts    # GitHub PR creation
+│
+├── config/               # Configuration
+│   └── config.ts         # Config loading and validation
+│
+├── logger/               # Logging
+│   └── logger.ts         # Structured logging
+│
+├── errors/               # Error handling
+│   └── errors.ts         # Custom error types
+│
+├── prompts/              # AI prompts
+│   ├── analyze.md        # Analysis prompt
+│   └── update.md         # Update prompt
+│
+└── index.ts              # Main entry point
 ```
 
+## Testing
+
+Run the test suite:
+
+```bash
+npm run test
+npm run test:ui  # Open test UI
+```
+
+Tests cover:
+- README validation
+- Configuration loading
+- Error handling
+- Git operations
+
+## How It Works
+
+1. **Analysis Phase**
+   - Collects changed files and diffs
+   - Loads current README
+   - Sends context to Gemini AI
+
+2. **Decision Phase**
+   - Gemini analyzes changes
+   - Determines if README update needed
+   - Returns reason and update instructions
+
+3. **Update Phase**
+   - Generates updated README
+   - Validates Markdown integrity
+   - Checks for meaningful changes
+
+4. **Git Phase**
+   - Creates feature branch
+   - Commits changes
+   - Pushes to repository
+
+5. **PR Phase**
+   - Creates pull request
+   - Includes analysis summary
+   - Ready for review
+
+## Error Handling
+
+The action gracefully handles:
+- **Gemini Timeouts**: Retryable errors with clear messages
+- **API Rate Limits**: Informative messages
+- **Invalid JSON**: Helpful error descriptions
+- **Git Failures**: Detailed git error messages
+- **Validation Errors**: Specific validation failure reasons
+
+## Example Workflow
+
+```yaml
+name: Keep README Fresh
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'docs/**'
+      - 'package.json'
+  workflow_dispatch:
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Update README
+        uses: Jenil1105/ai-readme-maintainer@v1
+        with:
+          gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          branch-prefix: "docs-update"
+          commit-message: "docs: sync README with latest changes"
+```
+
+## Security
+
+- No credentials stored in logs
+- API keys handled via GitHub Secrets
+- Tokens never exposed in outputs
+- Safe error messages without sensitive data
+
+## What Gets Analyzed
+
+The action intelligently analyzes:
+- **Source code changes**: New features, functions, classes
+- **Configuration changes**: Package versions, settings
+- **Documentation existing**: Current README state
+- **File statistics**: Types of files changed, scope of changes
+
+The action **ignores**:
+- Generated files (dist, build, etc.)
+- CI/CD workflows (.github/workflows/)
+- Dependencies (node_modules/)
+- Version control (.git/)
+
+## Contributing
+
+Contributions are welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Ensure all tests pass
+5. Submit a pull request
+
+## License
+
+ISC
+
+## Support
+
+- 📖 [Documentation](./docs)
+- 🐛 [Report Issues](https://github.com/Jenil1105/ai-readme-maintainer/issues)
+- 💬 [Discussions](https://github.com/Jenil1105/ai-readme-maintainer/discussions)
+
 ---
 
-# Current Development Status
-
-Implemented:
-
-*   ✅ TypeScript project setup
-*   ✅ Context Builder
-*   ✅ Repository context model
-*   ✅ Gemini Analyzer
-*   ✅ Structured JSON responses
-*   ✅ Prompt templates
-*   ✅ README Updater
-*   ✅ End-to-end AI pipeline
-*   ✅ Branch creation (via git CLI)
-*   ✅ Automatic commits (to new branch)
-*   ✅ Push to new branch (via git CLI)
-
-In Progress:
-
-*   🚧 Improve prompt quality
-*   🚧 Better update instructions
-*   🚧 More accurate README generation
-*   🚧 GitHub Action integration (core git operations implemented)
-
-Planned:
-
-*   Pull request creation
-*   Validation layer
-*   Configurable AI providers
-*   Marketplace release
-
----
-
-# Development Philosophy
-
-The project is being developed incrementally.
-
-Instead of designing every future component upfront, functionality is added one architectural "brick" at a time.
-
-Each component has a single responsibility:
-
-* Context Builder collects data.
-* Analyzer plans documentation changes.
-* Updater executes the plan.
-
-This approach keeps the architecture simple, testable, and easy to evolve.
-
----
-
-# License
-
-This project is open source and will be released under the MIT License.
+Made with ❤️ by Jenil

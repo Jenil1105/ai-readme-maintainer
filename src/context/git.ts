@@ -119,6 +119,30 @@ function getChangedFiles(ref: string): string[] {
     }
 
     try {
+        // Ensure the compare ref exists locally; if not, try to fetch it from origin
+        try {
+            execSync(`git rev-parse --verify ${ref}`, { stdio: "pipe" });
+        } catch (err) {
+            logger.debug(`Compare ref '${ref}' not found locally: ${err}`);
+            logger.info(`Attempting to fetch compare ref '${ref}' from origin`);
+            try {
+                // Try fetching the specific ref first (works if it's a branch or tag)
+                execSync(`git fetch --no-tags --prune --depth=1 origin ${ref}`, {
+                    stdio: "ignore",
+                });
+            } catch (err2) {
+                logger.debug(`Fetching specific ref failed: ${err2}`);
+                try {
+                    // Fall back to fetching a bit more history from origin
+                    execSync(`git fetch --no-tags --prune --depth=50 origin`, {
+                        stdio: "ignore",
+                    });
+                } catch (err3) {
+                    logger.debug(`Fallback fetch failed: ${err3}`);
+                }
+            }
+        }
+
         const output = execSync(`git diff --name-only ${ref} HEAD`, {
             encoding: "utf-8",
         });

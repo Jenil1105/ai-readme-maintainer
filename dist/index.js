@@ -62916,6 +62916,26 @@ function getChangedFiles(ref) {
     return [];
   }
   try {
+    try {
+      (0, import_node_child_process.execSync)(`git rev-parse --verify ${ref}`, { stdio: "pipe" });
+    } catch (err) {
+      logger.debug(`Compare ref '${ref}' not found locally: ${err}`);
+      logger.info(`Attempting to fetch compare ref '${ref}' from origin`);
+      try {
+        (0, import_node_child_process.execSync)(`git fetch --no-tags --prune --depth=1 origin ${ref}`, {
+          stdio: "ignore"
+        });
+      } catch (err2) {
+        logger.debug(`Fetching specific ref failed: ${err2}`);
+        try {
+          (0, import_node_child_process.execSync)(`git fetch --no-tags --prune --depth=50 origin`, {
+            stdio: "ignore"
+          });
+        } catch (err3) {
+          logger.debug(`Fallback fetch failed: ${err3}`);
+        }
+      }
+    }
     const output = (0, import_node_child_process.execSync)(`git diff --name-only ${ref} HEAD`, {
       encoding: "utf-8"
     });

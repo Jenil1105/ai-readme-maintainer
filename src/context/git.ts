@@ -65,6 +65,31 @@ export function getGitInfo(compareRef?: string): GitInfo {
 
 function getDefaultCompareRef(): string {
     try {
+        // Prefer GitHub Actions provided base ref when available
+        const githubBaseRef = process.env.GITHUB_BASE_REF;
+        const githubEventBefore = process.env.GITHUB_EVENT_BEFORE;
+
+        if (githubBaseRef) {
+            return `origin/${githubBaseRef}`;
+        }
+
+        if (githubEventBefore) {
+            return githubEventBefore;
+        }
+
+        // Try to use a merge-base with origin/HEAD (works when origin fetched)
+        try {
+            execSync("git fetch --no-tags --prune --depth=1 origin", { stdio: "ignore" });
+            const mergeBase = execSync("git merge-base HEAD origin/HEAD", {
+                encoding: "utf-8",
+            }).trim();
+
+            if (mergeBase) return mergeBase;
+        } catch {
+            // ignore and fall back
+        }
+
+        // Last resort: compare to previous commit if available
         execSync("git rev-parse --verify HEAD~1", { stdio: "pipe" });
         return "HEAD~1";
     } catch {

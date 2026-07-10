@@ -62826,6 +62826,22 @@ function getGitInfo(compareRef) {
 }
 function getDefaultCompareRef() {
   try {
+    const githubBaseRef = process.env.GITHUB_BASE_REF;
+    const githubEventBefore = process.env.GITHUB_EVENT_BEFORE;
+    if (githubBaseRef) {
+      return `origin/${githubBaseRef}`;
+    }
+    if (githubEventBefore) {
+      return githubEventBefore;
+    }
+    try {
+      (0, import_node_child_process.execSync)("git fetch --no-tags --prune --depth=1 origin", { stdio: "ignore" });
+      const mergeBase = (0, import_node_child_process.execSync)("git merge-base HEAD origin/HEAD", {
+        encoding: "utf-8"
+      }).trim();
+      if (mergeBase) return mergeBase;
+    } catch {
+    }
     (0, import_node_child_process.execSync)("git rev-parse --verify HEAD~1", { stdio: "pipe" });
     return "HEAD~1";
   } catch {

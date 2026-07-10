@@ -39,6 +39,9 @@ inputs:
     description: Run analysis without creating PR
     required: false
     default: "false"
+  compare-ref:
+    description: Explicit Git compare ref (overrides auto-detection)
+    required: false
 
 runs:
   using: node24

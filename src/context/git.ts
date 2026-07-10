@@ -1,5 +1,6 @@
 import { execSync } from "node:child_process";
 import { ChangedFile } from "./types.js";
+import { logger } from "../logger/logger.js";
 
 const ignoredPaths = [
     "dist/",
@@ -20,7 +21,11 @@ export interface GitInfo {
 
 export function getGitInfo(compareRef?: string): GitInfo {
     const ref = compareRef || getDefaultCompareRef();
+    logger.debug(`Using compare ref: ${ref}`);
     const fileNames = getChangedFiles(ref);
+    if (fileNames.length === 0) {
+        logger.info(`No changed files detected when comparing against '${ref || "<none>"}'`);
+    }
 
     const changedFiles: ChangedFile[] = fileNames.map((file) => {
         const diff = execSync(`git diff ${ref} HEAD -- "${file}"`, {
@@ -70,28 +75,39 @@ function getDefaultCompareRef(): string {
         const githubEventBefore = process.env.GITHUB_EVENT_BEFORE;
 
         if (githubBaseRef) {
+            logger.debug(`GITHUB_BASE_REF detected: ${githubBaseRef}`);
             return `origin/${githubBaseRef}`;
         }
 
         if (githubEventBefore) {
+            logger.debug(`GITHUB_EVENT_BEFORE detected: ${githubEventBefore}`);
             return githubEventBefore;
         }
 
         // Try to use a merge-base with origin/HEAD (works when origin fetched)
         try {
+            logger.debug("Attempting shallow fetch and merge-base with origin/HEAD");
             execSync("git fetch --no-tags --prune --depth=1 origin", { stdio: "ignore" });
             const mergeBase = execSync("git merge-base HEAD origin/HEAD", {
                 encoding: "utf-8",
             }).trim();
 
+            logger.debug(`merge-base result: ${mergeBase}`);
+
             if (mergeBase) return mergeBase;
-        } catch {
+        } catch (err) {
+            logger.debug(`merge-base attempt failed: ${err}`);
             // ignore and fall back
         }
 
         // Last resort: compare to previous commit if available
-        execSync("git rev-parse --verify HEAD~1", { stdio: "pipe" });
-        return "HEAD~1";
+        try {
+            execSync("git rev-parse --verify HEAD~1", { stdio: "pipe" });
+            return "HEAD~1";
+        } catch (err) {
+            logger.debug(`HEAD~1 not available: ${err}`);
+            return "";
+        }
     } catch {
         return "";
     }
@@ -103,9 +119,12 @@ function getChangedFiles(ref: string): string[] {
     }
 
     try {
-        return execSync(`git diff --name-only ${ref} HEAD`, {
+        const output = execSync(`git diff --name-only ${ref} HEAD`, {
             encoding: "utf-8",
-        })
+        });
+        logger.debug(`git diff --name-only ${ref} HEAD output:\n${output}`);
+
+        return output
             .trim()
             .split("\n")
             .filter(Boolean)

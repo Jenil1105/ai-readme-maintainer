@@ -31,7 +31,7 @@ async function main() {
 
         // Build context
         logger.logStep("Building repository context", "pending");
-        const context = buildContext();
+        const context = buildContext(undefined, config.compareRef);
 
         if (context.changedFiles.length === 0) {
             logger.info("No files changed. Skipping analysis.");

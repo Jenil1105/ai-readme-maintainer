@@ -9,6 +9,7 @@ export interface ActionConfig {
     prTitle: string;
     baseBranch: string;
     dryRun: boolean;
+    compareRef?: string;
 }
 
 export function loadConfig(): ActionConfig {
@@ -22,6 +23,7 @@ export function loadConfig(): ActionConfig {
         prTitle: core.getInput("pr-title") || "docs: update README",
         baseBranch: core.getInput("base-branch") || "main",
         dryRun: core.getInput("dry-run")?.toLowerCase() === "true" || false,
+        compareRef: core.getInput("compare-ref") || undefined,
     };
 }
 

@@ -62781,6 +62781,55 @@ async function analyze(context, geminiClient) {
 
 // src/context/git.ts
 var import_node_child_process = require("child_process");
+
+// src/logger/logger.ts
+var Logger = class {
+  prefix;
+  constructor(prefix) {
+    this.prefix = prefix ? `[${prefix}]` : "";
+  }
+  debug(message) {
+    if (this.prefix) {
+      debug(`${this.prefix} ${message}`);
+    } else {
+      debug(message);
+    }
+  }
+  info(message) {
+    if (this.prefix) {
+      info(`${this.prefix} ${message}`);
+    } else {
+      info(message);
+    }
+  }
+  warning(message) {
+    if (this.prefix) {
+      warning(`${this.prefix} ${message}`);
+    } else {
+      warning(message);
+    }
+  }
+  error(message) {
+    if (this.prefix) {
+      error(`${this.prefix} ${message}`);
+    } else {
+      error(message);
+    }
+  }
+  startGroup(name) {
+    startGroup(this.prefix ? `${this.prefix} ${name}` : name);
+  }
+  endGroup() {
+    endGroup();
+  }
+  logStep(step, status) {
+    const icon = status === "success" ? "\u2713" : status === "failed" ? "\u2717" : "\u27F3";
+    this.info(`${icon} ${step}`);
+  }
+};
+var logger = new Logger("AI README Maintainer");
+
+// src/context/git.ts
 var ignoredPaths = [
   "dist/",
   "node_modules/",
@@ -62789,7 +62838,11 @@ var ignoredPaths = [
 ];
 function getGitInfo(compareRef) {
   const ref = compareRef || getDefaultCompareRef();
+  logger.debug(`Using compare ref: ${ref}`);
   const fileNames = getChangedFiles(ref);
+  if (fileNames.length === 0) {
+    logger.info(`No changed files detected when comparing against '${ref || "<none>"}'`);
+  }
   const changedFiles = fileNames.map((file) => {
     const diff = (0, import_node_child_process.execSync)(`git diff ${ref} HEAD -- "${file}"`, {
       encoding: "utf-8"
@@ -62829,21 +62882,31 @@ function getDefaultCompareRef() {
     const githubBaseRef = process.env.GITHUB_BASE_REF;
     const githubEventBefore = process.env.GITHUB_EVENT_BEFORE;
     if (githubBaseRef) {
+      logger.debug(`GITHUB_BASE_REF detected: ${githubBaseRef}`);
       return `origin/${githubBaseRef}`;
     }
     if (githubEventBefore) {
+      logger.debug(`GITHUB_EVENT_BEFORE detected: ${githubEventBefore}`);
       return githubEventBefore;
     }
     try {
+      logger.debug("Attempting shallow fetch and merge-base with origin/HEAD");
       (0, import_node_child_process.execSync)("git fetch --no-tags --prune --depth=1 origin", { stdio: "ignore" });
       const mergeBase = (0, import_node_child_process.execSync)("git merge-base HEAD origin/HEAD", {
         encoding: "utf-8"
       }).trim();
+      logger.debug(`merge-base result: ${mergeBase}`);
       if (mergeBase) return mergeBase;
-    } catch {
+    } catch (err) {
+      logger.debug(`merge-base attempt failed: ${err}`);
     }
-    (0, import_node_child_process.execSync)("git rev-parse --verify HEAD~1", { stdio: "pipe" });
-    return "HEAD~1";
+    try {
+      (0, import_node_child_process.execSync)("git rev-parse --verify HEAD~1", { stdio: "pipe" });
+      return "HEAD~1";
+    } catch (err) {
+      logger.debug(`HEAD~1 not available: ${err}`);
+      return "";
+    }
   } catch {
     return "";
   }
@@ -62853,9 +62916,12 @@ function getChangedFiles(ref) {
     return [];
   }
   try {
-    return (0, import_node_child_process.execSync)(`git diff --name-only ${ref} HEAD`, {
+    const output = (0, import_node_child_process.execSync)(`git diff --name-only ${ref} HEAD`, {
       encoding: "utf-8"
-    }).trim().split("\n").filter(Boolean).filter(
+    });
+    logger.debug(`git diff --name-only ${ref} HEAD output:
+${output}`);
+    return output.trim().split("\n").filter(Boolean).filter(
       (file) => !ignoredPaths.some((path2) => file.startsWith(path2)) && !isGeneratedFile(file)
     );
   } catch {
@@ -62897,8 +62963,8 @@ function loadReadme(filePath = "README.md") {
 }
 
 // src/context/builder.ts
-function buildContext(readmeFilePath) {
-  const gitInfo = getGitInfo();
+function buildContext(readmeFilePath, compareRef) {
+  const gitInfo = getGitInfo(compareRef);
   const readme = loadReadme(readmeFilePath);
   return {
     readme,
@@ -66739,7 +66805,8 @@ function loadConfig() {
     commitMessage: getInput("commit-message") || "docs: update README",
     prTitle: getInput("pr-title") || "docs: update README",
     baseBranch: getInput("base-branch") || "main",
-    dryRun: getInput("dry-run")?.toLowerCase() === "true" || false
+    dryRun: getInput("dry-run")?.toLowerCase() === "true" || false,
+    compareRef: getInput("compare-ref") || void 0
   };
 }
 function validateConfig(config) {
@@ -66758,53 +66825,6 @@ function validateConfig(config) {
   }
   return errors;
 }
-
-// src/logger/logger.ts
-var Logger = class {
-  prefix;
-  constructor(prefix) {
-    this.prefix = prefix ? `[${prefix}]` : "";
-  }
-  debug(message) {
-    if (this.prefix) {
-      debug(`${this.prefix} ${message}`);
-    } else {
-      debug(message);
-    }
-  }
-  info(message) {
-    if (this.prefix) {
-      info(`${this.prefix} ${message}`);
-    } else {
-      info(message);
-    }
-  }
-  warning(message) {
-    if (this.prefix) {
-      warning(`${this.prefix} ${message}`);
-    } else {
-      warning(message);
-    }
-  }
-  error(message) {
-    if (this.prefix) {
-      error(`${this.prefix} ${message}`);
-    } else {
-      error(message);
-    }
-  }
-  startGroup(name) {
-    startGroup(this.prefix ? `${this.prefix} ${name}` : name);
-  }
-  endGroup() {
-    endGroup();
-  }
-  logStep(step, status) {
-    const icon = status === "success" ? "\u2713" : status === "failed" ? "\u2717" : "\u27F3";
-    this.info(`${icon} ${step}`);
-  }
-};
-var logger = new Logger("AI README Maintainer");
 
 // src/errors/errors.ts
 var AIError = class extends Error {
@@ -66873,7 +66893,7 @@ async function main() {
     logger.info("Initializing Gemini client...");
     const geminiClient = createGeminiClient(config.geminiApiKey);
     logger.logStep("Building repository context", "pending");
-    const context = buildContext();
+    const context = buildContext(void 0, config.compareRef);
     if (context.changedFiles.length === 0) {
       logger.info("No files changed. Skipping analysis.");
       logger.endGroup();

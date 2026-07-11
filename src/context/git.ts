@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { ChangedFile } from "./types.js";
 import { logger } from "../logger/logger.js";
 
@@ -20,15 +20,16 @@ export interface GitInfo {
 }
 
 export function getGitInfo(compareRef?: string): GitInfo {
-    const ref = compareRef || getDefaultCompareRef();
-    logger.debug(`Using compare ref: ${ref}`);
-    const fileNames = getChangedFiles(ref);
+    const ref = resolveCompareRef(compareRef);
+    const effectiveRef = ensureCompareRef(ref);
+    logger.debug(`Using compare ref: ${effectiveRef || ref || "<none>"}`);
+    const fileNames = getChangedFiles(effectiveRef || ref);
     if (fileNames.length === 0) {
-        logger.info(`No changed files detected when comparing against '${ref || "<none>"}'`);
+        logger.info(`No changed files detected when comparing against '${effectiveRef || ref || "<none>"}'`);
     }
 
     const changedFiles: ChangedFile[] = fileNames.map((file) => {
-        const diff = execSync(`git diff ${ref} HEAD -- "${file}"`, {
+        const diff = execFileSync("git", ["diff", effectiveRef || ref, "HEAD", "--", file], {
             encoding: "utf-8",
         });
 
@@ -68,6 +69,15 @@ export function getGitInfo(compareRef?: string): GitInfo {
     };
 }
 
+function resolveCompareRef(compareRef?: string): string {
+    const explicitRef = compareRef?.trim();
+    if (explicitRef) {
+        return explicitRef;
+    }
+
+    return getDefaultCompareRef();
+}
+
 function getDefaultCompareRef(): string {
     try {
         // Prefer GitHub Actions provided base ref when available
@@ -87,8 +97,8 @@ function getDefaultCompareRef(): string {
         // Try to use a merge-base with origin/HEAD (works when origin fetched)
         try {
             logger.debug("Attempting shallow fetch and merge-base with origin/HEAD");
-            execSync("git fetch --no-tags --prune --depth=1 origin", { stdio: "ignore" });
-            const mergeBase = execSync("git merge-base HEAD origin/HEAD", {
+            execFileSync("git", ["fetch", "--no-tags", "--prune", "--depth=1", "origin"], { stdio: "ignore" });
+            const mergeBase = execFileSync("git", ["merge-base", "HEAD", "origin/HEAD"], {
                 encoding: "utf-8",
             }).trim();
 
@@ -102,7 +112,7 @@ function getDefaultCompareRef(): string {
 
         // Last resort: compare to previous commit if available
         try {
-            execSync("git rev-parse --verify HEAD~1", { stdio: "pipe" });
+            execFileSync("git", ["rev-parse", "--verify", "HEAD~1"], { stdio: "pipe" });
             return "HEAD~1";
         } catch (err) {
             logger.debug(`HEAD~1 not available: ${err}`);
@@ -118,23 +128,28 @@ function getChangedFiles(ref: string): string[] {
         return [];
     }
 
+    const effectiveRef = ensureCompareRef(ref);
+    if (!effectiveRef) {
+        return [];
+    }
+
     try {
         // Ensure the compare ref exists locally; if not, try to fetch it from origin
         try {
-            execSync(`git rev-parse --verify ${ref}`, { stdio: "pipe" });
+            execFileSync("git", ["rev-parse", "--verify", effectiveRef], { stdio: "pipe" });
         } catch (err) {
-            logger.debug(`Compare ref '${ref}' not found locally: ${err}`);
-            logger.info(`Attempting to fetch compare ref '${ref}' from origin`);
+            logger.debug(`Compare ref '${effectiveRef}' not found locally: ${err}`);
+            logger.info(`Attempting to fetch compare ref '${effectiveRef}' from origin`);
             try {
                 // Try fetching the specific ref first (works if it's a branch or tag)
-                execSync(`git fetch --no-tags --prune --depth=1 origin ${ref}`, {
+                execFileSync("git", ["fetch", "--no-tags", "--prune", "--depth=1", "origin", effectiveRef], {
                     stdio: "ignore",
                 });
             } catch (err2) {
                 logger.debug(`Fetching specific ref failed: ${err2}`);
                 try {
                     // Fall back to fetching a bit more history from origin
-                    execSync(`git fetch --no-tags --prune --depth=50 origin`, {
+                    execFileSync("git", ["fetch", "--no-tags", "--prune", "--depth=50", "origin"], {
                         stdio: "ignore",
                     });
                 } catch (err3) {
@@ -143,10 +158,10 @@ function getChangedFiles(ref: string): string[] {
             }
         }
 
-        const output = execSync(`git diff --name-only ${ref} HEAD`, {
+        const output = execFileSync("git", ["diff", "--name-only", effectiveRef, "HEAD"], {
             encoding: "utf-8",
         });
-        logger.debug(`git diff --name-only ${ref} HEAD output:\n${output}`);
+        logger.debug(`git diff --name-only ${effectiveRef} HEAD output:\n${output}`);
 
         return output
             .trim()
@@ -162,6 +177,40 @@ function getChangedFiles(ref: string): string[] {
     }
 }
 
+function ensureCompareRef(ref: string): string {
+    if (!ref) {
+        return "";
+    }
+
+    try {
+        const target = ref.trim();
+        if (!target) {
+            return "";
+        }
+
+        const currentCommit = execFileSync("git", ["rev-parse", "HEAD"], {
+            encoding: "utf-8",
+        }).trim();
+        const resolvedRef = execFileSync("git", ["rev-parse", target], {
+            encoding: "utf-8",
+        }).trim();
+
+        if (resolvedRef === currentCommit) {
+            logger.debug(`Compare ref '${target}' resolves to HEAD; using parent commit instead`);
+            try {
+                execFileSync("git", ["rev-parse", "--verify", "HEAD^"], { stdio: "pipe" });
+                return "HEAD^";
+            } catch {
+                return "HEAD~1";
+            }
+        }
+
+        return target;
+    } catch {
+        return ref;
+    }
+}
+
 function getChangeType(
     file: string,
     ref: string
@@ -170,8 +219,13 @@ function getChangeType(
         return "added";
     }
 
+    const effectiveRef = ensureCompareRef(ref);
+    if (!effectiveRef) {
+        return "added";
+    }
+
     try {
-        const status = execSync(`git diff --name-status ${ref} HEAD -- "${file}"`, {
+        const status = execFileSync("git", ["diff", "--name-status", effectiveRef, "HEAD", "--", file], {
             encoding: "utf-8",
         }).trim();
 

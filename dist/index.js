@@ -62837,14 +62837,15 @@ var ignoredPaths = [
   ".github/workflows/"
 ];
 function getGitInfo(compareRef) {
-  const ref = compareRef || getDefaultCompareRef();
-  logger.debug(`Using compare ref: ${ref}`);
-  const fileNames = getChangedFiles(ref);
+  const ref = resolveCompareRef(compareRef);
+  const effectiveRef = ensureCompareRef(ref);
+  logger.debug(`Using compare ref: ${effectiveRef || ref || "<none>"}`);
+  const fileNames = getChangedFiles(effectiveRef || ref);
   if (fileNames.length === 0) {
-    logger.info(`No changed files detected when comparing against '${ref || "<none>"}'`);
+    logger.info(`No changed files detected when comparing against '${effectiveRef || ref || "<none>"}'`);
   }
   const changedFiles = fileNames.map((file) => {
-    const diff = (0, import_node_child_process.execSync)(`git diff ${ref} HEAD -- "${file}"`, {
+    const diff = (0, import_node_child_process.execFileSync)("git", ["diff", effectiveRef || ref, "HEAD", "--", file], {
       encoding: "utf-8"
     });
     const additions = (diff.match(/^\+/gm) || []).length - 1;
@@ -62877,6 +62878,13 @@ function getGitInfo(compareRef) {
     }
   };
 }
+function resolveCompareRef(compareRef) {
+  const explicitRef = compareRef?.trim();
+  if (explicitRef) {
+    return explicitRef;
+  }
+  return getDefaultCompareRef();
+}
 function getDefaultCompareRef() {
   try {
     const githubBaseRef = process.env.GITHUB_BASE_REF;
@@ -62891,8 +62899,8 @@ function getDefaultCompareRef() {
     }
     try {
       logger.debug("Attempting shallow fetch and merge-base with origin/HEAD");
-      (0, import_node_child_process.execSync)("git fetch --no-tags --prune --depth=1 origin", { stdio: "ignore" });
-      const mergeBase = (0, import_node_child_process.execSync)("git merge-base HEAD origin/HEAD", {
+      (0, import_node_child_process.execFileSync)("git", ["fetch", "--no-tags", "--prune", "--depth=1", "origin"], { stdio: "ignore" });
+      const mergeBase = (0, import_node_child_process.execFileSync)("git", ["merge-base", "HEAD", "origin/HEAD"], {
         encoding: "utf-8"
       }).trim();
       logger.debug(`merge-base result: ${mergeBase}`);
@@ -62901,7 +62909,7 @@ function getDefaultCompareRef() {
       logger.debug(`merge-base attempt failed: ${err}`);
     }
     try {
-      (0, import_node_child_process.execSync)("git rev-parse --verify HEAD~1", { stdio: "pipe" });
+      (0, import_node_child_process.execFileSync)("git", ["rev-parse", "--verify", "HEAD~1"], { stdio: "pipe" });
       return "HEAD~1";
     } catch (err) {
       logger.debug(`HEAD~1 not available: ${err}`);
@@ -62915,20 +62923,24 @@ function getChangedFiles(ref) {
   if (!ref) {
     return [];
   }
+  const effectiveRef = ensureCompareRef(ref);
+  if (!effectiveRef) {
+    return [];
+  }
   try {
     try {
-      (0, import_node_child_process.execSync)(`git rev-parse --verify ${ref}`, { stdio: "pipe" });
+      (0, import_node_child_process.execFileSync)("git", ["rev-parse", "--verify", effectiveRef], { stdio: "pipe" });
     } catch (err) {
-      logger.debug(`Compare ref '${ref}' not found locally: ${err}`);
-      logger.info(`Attempting to fetch compare ref '${ref}' from origin`);
+      logger.debug(`Compare ref '${effectiveRef}' not found locally: ${err}`);
+      logger.info(`Attempting to fetch compare ref '${effectiveRef}' from origin`);
       try {
-        (0, import_node_child_process.execSync)(`git fetch --no-tags --prune --depth=1 origin ${ref}`, {
+        (0, import_node_child_process.execFileSync)("git", ["fetch", "--no-tags", "--prune", "--depth=1", "origin", effectiveRef], {
           stdio: "ignore"
         });
       } catch (err2) {
         logger.debug(`Fetching specific ref failed: ${err2}`);
         try {
-          (0, import_node_child_process.execSync)(`git fetch --no-tags --prune --depth=50 origin`, {
+          (0, import_node_child_process.execFileSync)("git", ["fetch", "--no-tags", "--prune", "--depth=50", "origin"], {
             stdio: "ignore"
           });
         } catch (err3) {
@@ -62936,10 +62948,10 @@ function getChangedFiles(ref) {
         }
       }
     }
-    const output = (0, import_node_child_process.execSync)(`git diff --name-only ${ref} HEAD`, {
+    const output = (0, import_node_child_process.execFileSync)("git", ["diff", "--name-only", effectiveRef, "HEAD"], {
       encoding: "utf-8"
     });
-    logger.debug(`git diff --name-only ${ref} HEAD output:
+    logger.debug(`git diff --name-only ${effectiveRef} HEAD output:
 ${output}`);
     return output.trim().split("\n").filter(Boolean).filter(
       (file) => !ignoredPaths.some((path2) => file.startsWith(path2)) && !isGeneratedFile(file)
@@ -62948,12 +62960,45 @@ ${output}`);
     return [];
   }
 }
+function ensureCompareRef(ref) {
+  if (!ref) {
+    return "";
+  }
+  try {
+    const target = ref.trim();
+    if (!target) {
+      return "";
+    }
+    const currentCommit = (0, import_node_child_process.execFileSync)("git", ["rev-parse", "HEAD"], {
+      encoding: "utf-8"
+    }).trim();
+    const resolvedRef = (0, import_node_child_process.execFileSync)("git", ["rev-parse", target], {
+      encoding: "utf-8"
+    }).trim();
+    if (resolvedRef === currentCommit) {
+      logger.debug(`Compare ref '${target}' resolves to HEAD; using parent commit instead`);
+      try {
+        (0, import_node_child_process.execFileSync)("git", ["rev-parse", "--verify", "HEAD^"], { stdio: "pipe" });
+        return "HEAD^";
+      } catch {
+        return "HEAD~1";
+      }
+    }
+    return target;
+  } catch {
+    return ref;
+  }
+}
 function getChangeType(file, ref) {
   if (!ref) {
     return "added";
   }
+  const effectiveRef = ensureCompareRef(ref);
+  if (!effectiveRef) {
+    return "added";
+  }
   try {
-    const status = (0, import_node_child_process.execSync)(`git diff --name-status ${ref} HEAD -- "${file}"`, {
+    const status = (0, import_node_child_process.execFileSync)("git", ["diff", "--name-status", effectiveRef, "HEAD", "--", file], {
       encoding: "utf-8"
     }).trim();
     if (status.startsWith("A")) return "added";

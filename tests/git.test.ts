@@ -40,4 +40,15 @@ describe("getGitInfo", () => {
             filesByType: {},
         });
     });
+
+    it("uses the parent commit when the compare ref resolves to HEAD", () => {
+        writeFileSync(join(tempDir, "README.md"), "# test\n\nUpdated\n", "utf-8");
+        execSync("git add README.md", { stdio: "pipe" });
+        execSync('git commit -m "update README"', { stdio: "pipe" });
+
+        const gitInfo = getGitInfo("HEAD");
+
+        expect(gitInfo.changedFiles.map((file) => file.path)).toEqual(["README.md"]);
+        expect(gitInfo.summary.totalFiles).toBe(1);
+    });
 });

@@ -62722,7 +62722,7 @@ function loadPrompt(promptName, replacements) {
   if (promptCache.has(cacheKey)) {
     return promptCache.get(cacheKey);
   }
-  const promptPath = (0, import_node_path2.join)(__dirname, "../prompts", `${promptName}.md`);
+  const promptPath = (0, import_node_path2.join)(__dirname, "prompts", `${promptName}.md`);
   let prompt = (0, import_node_fs2.readFileSync)(promptPath, "utf8");
   if (replacements) {
     for (const [key, value] of Object.entries(replacements)) {

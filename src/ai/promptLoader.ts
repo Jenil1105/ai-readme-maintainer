@@ -13,7 +13,7 @@ export function loadPrompt(
     return promptCache.get(cacheKey)!;
   }
 
-  const promptPath = join(__dirname, "../prompts", `${promptName}.md`);
+  const promptPath = join(__dirname, "prompts", `${promptName}.md`);
 
   let prompt = readFileSync(promptPath, "utf8");
 

@@ -311,15 +311,15 @@ Contributions are welcome! Please:
 4. Ensure all tests pass
 5. Submit a pull request
 
+please refer to [DEVELOPMENT](./DEVELOPMENT.md)
+
 ## License
 
-ISC
+This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
 
 ## Support
 
-- 📖 [Documentation](./docs)
-- 🐛 [Report Issues](https://github.com/Jenil1105/ai-readme-maintainer/issues)
-- 💬 [Discussions](https://github.com/Jenil1105/ai-readme-maintainer/discussions)
+- [Report Issues](https://github.com/Jenil1105/ai-readme-maintainer/issues)
 
 ---
 

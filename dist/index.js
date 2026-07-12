@@ -62909,10 +62909,16 @@ function getDefaultCompareRef() {
       logger.debug(`merge-base attempt failed: ${err}`);
     }
     try {
-      (0, import_node_child_process.execFileSync)("git", ["rev-parse", "--verify", "HEAD~1"], { stdio: "pipe" });
-      return "HEAD~1";
+      const commits = (0, import_node_child_process.execFileSync)("git", ["rev-list", "--max-count=2", "HEAD"], {
+        encoding: "utf-8"
+      }).trim().split(/\s+/).filter(Boolean);
+      if (commits.length > 1) {
+        return "HEAD~1";
+      }
+      logger.debug("No previous commit available for diffing");
+      return "";
     } catch (err) {
-      logger.debug(`HEAD~1 not available: ${err}`);
+      logger.debug(`Previous commit lookup failed: ${err}`);
       return "";
     }
   } catch {
@@ -62972,7 +62978,7 @@ function ensureCompareRef(ref) {
     const currentCommit = (0, import_node_child_process.execFileSync)("git", ["rev-parse", "HEAD"], {
       encoding: "utf-8"
     }).trim();
-    const resolvedRef = (0, import_node_child_process.execFileSync)("git", ["rev-parse", target], {
+    const resolvedRef = (0, import_node_child_process.execFileSync)("git", ["rev-parse", "--verify", target], {
       encoding: "utf-8"
     }).trim();
     if (resolvedRef === currentCommit) {
@@ -62985,7 +62991,11 @@ function ensureCompareRef(ref) {
       }
     }
     return target;
-  } catch {
+  } catch (err) {
+    logger.debug(`Compare ref '${ref}' could not be resolved: ${err}`);
+    if (/[~^]/.test(ref)) {
+      return "";
+    }
     return ref;
   }
 }
@@ -66736,7 +66746,7 @@ var Octokit2 = Octokit.plugin(requestLog, legacyRestEndpointMethods, paginateRes
 // src/git/pullRequest.ts
 function generatePRBody(analysis, summary2) {
   const sections = [
-    "## \u{1F916} AI README Maintainer",
+    "## AI README Maintainer",
     "",
     "### Summary",
     `${analysis.reason}`,

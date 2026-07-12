@@ -10,7 +10,7 @@ function generatePRBody(
     }
 ): string {
     const sections: string[] = [
-        "## 🤖 AI README Maintainer",
+        "## AI README Maintainer",
         "",
         "### Summary",
         `${analysis.reason}`,

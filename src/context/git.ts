@@ -112,10 +112,21 @@ function getDefaultCompareRef(): string {
 
         // Last resort: compare to previous commit if available
         try {
-            execFileSync("git", ["rev-parse", "--verify", "HEAD~1"], { stdio: "pipe" });
-            return "HEAD~1";
+            const commits = execFileSync("git", ["rev-list", "--max-count=2", "HEAD"], {
+                encoding: "utf-8",
+            })
+                .trim()
+                .split(/\s+/)
+                .filter(Boolean);
+
+            if (commits.length > 1) {
+                return "HEAD~1";
+            }
+
+            logger.debug("No previous commit available for diffing");
+            return "";
         } catch (err) {
-            logger.debug(`HEAD~1 not available: ${err}`);
+            logger.debug(`Previous commit lookup failed: ${err}`);
             return "";
         }
     } catch {
@@ -191,7 +202,7 @@ function ensureCompareRef(ref: string): string {
         const currentCommit = execFileSync("git", ["rev-parse", "HEAD"], {
             encoding: "utf-8",
         }).trim();
-        const resolvedRef = execFileSync("git", ["rev-parse", target], {
+        const resolvedRef = execFileSync("git", ["rev-parse", "--verify", target], {
             encoding: "utf-8",
         }).trim();
 
@@ -206,7 +217,13 @@ function ensureCompareRef(ref: string): string {
         }
 
         return target;
-    } catch {
+    } catch (err) {
+        logger.debug(`Compare ref '${ref}' could not be resolved: ${err}`);
+
+        if (/[~^]/.test(ref)) {
+            return "";
+        }
+
         return ref;
     }
 }

@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { ChangedFile } from "./types.js";
-import { logger } from "../logger/logger.js";
+import { isDebugLoggingEnabled, logger } from "../logger/logger.js";
 
 const ignoredPaths = [
     "dist/",
@@ -29,9 +29,17 @@ export function getGitInfo(compareRef?: string): GitInfo {
     }
 
     const changedFiles: ChangedFile[] = fileNames.map((file) => {
-        const diff = execFileSync("git", ["diff", effectiveRef || ref, "HEAD", "--", file], {
+        const diff = runGitCommand("git", ["diff", effectiveRef || ref, "HEAD", "--", file], {
             encoding: "utf-8",
         });
+
+        if (isDebugLoggingEnabled()) {
+            logger.info("Generating diff for:");
+            logger.info(file);
+            logger.info(`Diff length: ${diff.length} characters`);
+            const preview = diff.length > 200 ? `${diff.slice(0, 200)}...` : diff;
+            logger.info(`First 200 characters: ${preview}`);
+        }
 
         const additions = (diff.match(/^\+/gm) || []).length - 1; // -1 to exclude the +++ line
         const deletions = (diff.match(/^\-/gm) || []).length - 1; // -1 to exclude the --- line
@@ -97,8 +105,8 @@ function getDefaultCompareRef(): string {
         // Try to use a merge-base with origin/HEAD (works when origin fetched)
         try {
             logger.debug("Attempting shallow fetch and merge-base with origin/HEAD");
-            execFileSync("git", ["fetch", "--no-tags", "--prune", "--depth=1", "origin"], { stdio: "ignore" });
-            const mergeBase = execFileSync("git", ["merge-base", "HEAD", "origin/HEAD"], {
+            runGitCommand("git", ["fetch", "--no-tags", "--prune", "--depth=1", "origin"], { stdio: "ignore" });
+            const mergeBase = runGitCommand("git", ["merge-base", "HEAD", "origin/HEAD"], {
                 encoding: "utf-8",
             }).trim();
 
@@ -112,21 +120,10 @@ function getDefaultCompareRef(): string {
 
         // Last resort: compare to previous commit if available
         try {
-            const commits = execFileSync("git", ["rev-list", "--max-count=2", "HEAD"], {
-                encoding: "utf-8",
-            })
-                .trim()
-                .split(/\s+/)
-                .filter(Boolean);
-
-            if (commits.length > 1) {
-                return "HEAD~1";
-            }
-
-            logger.debug("No previous commit available for diffing");
-            return "";
+            runGitCommand("git", ["rev-parse", "--verify", "HEAD~1"], { stdio: "pipe" });
+            return "HEAD~1";
         } catch (err) {
-            logger.debug(`Previous commit lookup failed: ${err}`);
+            logger.debug(`HEAD~1 not available: ${err}`);
             return "";
         }
     } catch {
@@ -147,20 +144,20 @@ function getChangedFiles(ref: string): string[] {
     try {
         // Ensure the compare ref exists locally; if not, try to fetch it from origin
         try {
-            execFileSync("git", ["rev-parse", "--verify", effectiveRef], { stdio: "pipe" });
+            runGitCommand("git", ["rev-parse", "--verify", effectiveRef], { stdio: "pipe" });
         } catch (err) {
             logger.debug(`Compare ref '${effectiveRef}' not found locally: ${err}`);
             logger.info(`Attempting to fetch compare ref '${effectiveRef}' from origin`);
             try {
                 // Try fetching the specific ref first (works if it's a branch or tag)
-                execFileSync("git", ["fetch", "--no-tags", "--prune", "--depth=1", "origin", effectiveRef], {
+                runGitCommand("git", ["fetch", "--no-tags", "--prune", "--depth=1", "origin", effectiveRef], {
                     stdio: "ignore",
                 });
             } catch (err2) {
                 logger.debug(`Fetching specific ref failed: ${err2}`);
                 try {
                     // Fall back to fetching a bit more history from origin
-                    execFileSync("git", ["fetch", "--no-tags", "--prune", "--depth=50", "origin"], {
+                    runGitCommand("git", ["fetch", "--no-tags", "--prune", "--depth=50", "origin"], {
                         stdio: "ignore",
                     });
                 } catch (err3) {
@@ -169,22 +166,63 @@ function getChangedFiles(ref: string): string[] {
             }
         }
 
-        const output = execFileSync("git", ["diff", "--name-only", effectiveRef, "HEAD"], {
+        const output = runGitCommand("git", ["diff", "--name-only", effectiveRef, "HEAD"], {
             encoding: "utf-8",
         });
         logger.debug(`git diff --name-only ${effectiveRef} HEAD output:\n${output}`);
 
-        return output
+        const rawFiles = output
             .trim()
             .split("\n")
-            .filter(Boolean)
-            .filter(
-                (file) =>
-                    !ignoredPaths.some((path) => file.startsWith(path)) &&
-                    !isGeneratedFile(file)
+            .filter(Boolean);
+
+        if (isDebugLoggingEnabled()) {
+            logger.info("Raw changed files:");
+            rawFiles.forEach((file) => logger.info(`- ${file}`));
+        }
+
+        const filteredFiles = rawFiles.filter(
+            (file) =>
+                !ignoredPaths.some((path) => file.startsWith(path)) &&
+                !isGeneratedFile(file)
+        );
+
+        if (isDebugLoggingEnabled()) {
+            logger.info("Filtered changed files:");
+            filteredFiles.forEach((file) => logger.info(`- ${file}`));
+
+            const ignoredFiles = rawFiles.filter((file) =>
+                ignoredPaths.some((path) => file.startsWith(path)) || isGeneratedFile(file)
             );
+
+            logger.info("Ignored:");
+            ignoredFiles.forEach((file) => logger.info(`- ${file}`));
+        }
+
+        return filteredFiles;
     } catch {
         return [];
+    }
+}
+
+function runGitCommand(command: string, args: string[], options?: { encoding?: BufferEncoding; stdio?: "pipe" | "ignore" | "inherit" }): string {
+    if (isDebugLoggingEnabled()) {
+        logger.info(`[Context] Running: ${command} ${args.join(" ")}`);
+    }
+
+    try {
+        const result = execFileSync(command, args, options as any);
+        if (isDebugLoggingEnabled()) {
+            logger.info(`[Context] Exit code: 0`);
+        }
+        return typeof result === "string" ? result : String(result);
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (isDebugLoggingEnabled()) {
+            logger.info(`[Context] Exit code: 1`);
+            logger.info(`[Context] stderr: ${message}`);
+        }
+        throw error;
     }
 }
 
@@ -199,17 +237,17 @@ function ensureCompareRef(ref: string): string {
             return "";
         }
 
-        const currentCommit = execFileSync("git", ["rev-parse", "HEAD"], {
+        const currentCommit = runGitCommand("git", ["rev-parse", "HEAD"], {
             encoding: "utf-8",
         }).trim();
-        const resolvedRef = execFileSync("git", ["rev-parse", "--verify", target], {
+        const resolvedRef = runGitCommand("git", ["rev-parse", target], {
             encoding: "utf-8",
         }).trim();
 
         if (resolvedRef === currentCommit) {
             logger.debug(`Compare ref '${target}' resolves to HEAD; using parent commit instead`);
             try {
-                execFileSync("git", ["rev-parse", "--verify", "HEAD^"], { stdio: "pipe" });
+                runGitCommand("git", ["rev-parse", "--verify", "HEAD^"], { stdio: "pipe" });
                 return "HEAD^";
             } catch {
                 return "HEAD~1";
@@ -217,13 +255,7 @@ function ensureCompareRef(ref: string): string {
         }
 
         return target;
-    } catch (err) {
-        logger.debug(`Compare ref '${ref}' could not be resolved: ${err}`);
-
-        if (/[~^]/.test(ref)) {
-            return "";
-        }
-
+    } catch {
         return ref;
     }
 }
@@ -242,7 +274,7 @@ function getChangeType(
     }
 
     try {
-        const status = execFileSync("git", ["diff", "--name-status", effectiveRef, "HEAD", "--", file], {
+        const status = runGitCommand("git", ["diff", "--name-status", effectiveRef, "HEAD", "--", file], {
             encoding: "utf-8",
         }).trim();
 

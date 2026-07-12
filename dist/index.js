@@ -41279,7 +41279,7 @@ var require_dist3 = __commonJS({
 });
 
 // src/index.ts
-var import_node_fs4 = require("fs");
+var import_node_fs6 = require("fs");
 
 // node_modules/@actions/core/lib/command.js
 var os = __toESM(require("os"), 1);
@@ -62780,9 +62780,11 @@ async function analyze(context, geminiClient) {
 }
 
 // src/context/git.ts
-var import_node_child_process = require("child_process");
+var import_node_child_process2 = require("child_process");
 
 // src/logger/logger.ts
+var import_node_child_process = require("child_process");
+var import_node_fs3 = require("fs");
 var Logger = class {
   prefix;
   constructor(prefix) {
@@ -62828,6 +62830,77 @@ var Logger = class {
   }
 };
 var logger = new Logger("AI README Maintainer");
+function isDebugLoggingEnabled() {
+  const debugFlag = process.env.DEBUG?.toLowerCase();
+  const inputDebugFlag = process.env.INPUT_DEBUG?.toLowerCase();
+  return debugFlag === "true" || debugFlag === "1" || inputDebugFlag === "true" || inputDebugFlag === "1";
+}
+function logContextDebugInfo(context) {
+  if (!isDebugLoggingEnabled()) {
+    return;
+  }
+  logger.startGroup("Context diagnostics");
+  try {
+    const repoInfo = context.repoInfo ?? {};
+    logger.info(`Repository root: ${repoInfo.repositoryRoot ?? process.cwd()}`);
+    logger.info(`Current directory: ${process.cwd()}`);
+    logger.info(`Repository name: ${repoInfo.repositoryName ?? "<unknown>"}`);
+    logger.info(`Branch: ${repoInfo.branch ?? "<unknown>"}`);
+    logger.info(`HEAD: ${repoInfo.headSha ?? "<unknown>"}`);
+    logger.info(`Previous: ${repoInfo.previousSha ?? "<not available>"}`);
+    for (const key of [
+      "GITHUB_SHA",
+      "GITHUB_REF",
+      "GITHUB_REF_NAME",
+      "GITHUB_EVENT_NAME",
+      "GITHUB_WORKFLOW",
+      "GITHUB_REPOSITORY",
+      "GITHUB_ACTOR"
+    ]) {
+      const value = process.env[key];
+      logger.info(`${key}: ${value ?? "<not set>"}`);
+    }
+    try {
+      const logOutput = (0, import_node_child_process.execFileSync)("git", ["log", "--oneline", "-5"], {
+        encoding: "utf-8",
+        stdio: ["ignore", "pipe", "pipe"]
+      });
+      logger.info("Recent commits:");
+      logger.info(logOutput.trim() || "<no commits>");
+    } catch (error2) {
+      logger.info("Failed to execute: git log --oneline -5");
+      logger.info(`stderr: ${error2 instanceof Error ? error2.message : String(error2)}`);
+    }
+    if (context.readmePath) {
+      const exists2 = (0, import_node_fs3.existsSync)(context.readmePath);
+      logger.info(`README exists: ${exists2}`);
+      logger.info(`README path: ${context.readmePath}`);
+      if (exists2) {
+        const fileStats = (0, import_node_fs3.statSync)(context.readmePath);
+        logger.info(`README size: ${fileStats.size} bytes`);
+      }
+    }
+    if (context.readme !== void 0) {
+      logger.info(`README content length: ${context.readme.length}`);
+    }
+    if (context.changedFiles) {
+      logger.info("Raw changed files:");
+      context.changedFiles.forEach((file) => logger.info(`- ${file.path}`));
+    }
+    if (context.summary) {
+      const gitDiffSize = (context.changedFiles ?? []).reduce(
+        (total, file) => total + (file.diff?.length ?? 0),
+        0
+      );
+      logger.info("RepositoryContext");
+      logger.info(`README size: ${context.readme?.length ?? 0} bytes`);
+      logger.info(`Changed files: ${context.summary.totalFiles ?? 0}`);
+      logger.info(`Git diff size: ${gitDiffSize} characters`);
+    }
+  } finally {
+    logger.endGroup();
+  }
+}
 
 // src/context/git.ts
 var ignoredPaths = [
@@ -62845,9 +62918,16 @@ function getGitInfo(compareRef) {
     logger.info(`No changed files detected when comparing against '${effectiveRef || ref || "<none>"}'`);
   }
   const changedFiles = fileNames.map((file) => {
-    const diff = (0, import_node_child_process.execFileSync)("git", ["diff", effectiveRef || ref, "HEAD", "--", file], {
+    const diff = runGitCommand("git", ["diff", effectiveRef || ref, "HEAD", "--", file], {
       encoding: "utf-8"
     });
+    if (isDebugLoggingEnabled()) {
+      logger.info("Generating diff for:");
+      logger.info(file);
+      logger.info(`Diff length: ${diff.length} characters`);
+      const preview = diff.length > 200 ? `${diff.slice(0, 200)}...` : diff;
+      logger.info(`First 200 characters: ${preview}`);
+    }
     const additions = (diff.match(/^\+/gm) || []).length - 1;
     const deletions = (diff.match(/^\-/gm) || []).length - 1;
     const extension2 = file.split(".").pop() || "unknown";
@@ -62899,8 +62979,8 @@ function getDefaultCompareRef() {
     }
     try {
       logger.debug("Attempting shallow fetch and merge-base with origin/HEAD");
-      (0, import_node_child_process.execFileSync)("git", ["fetch", "--no-tags", "--prune", "--depth=1", "origin"], { stdio: "ignore" });
-      const mergeBase = (0, import_node_child_process.execFileSync)("git", ["merge-base", "HEAD", "origin/HEAD"], {
+      runGitCommand("git", ["fetch", "--no-tags", "--prune", "--depth=1", "origin"], { stdio: "ignore" });
+      const mergeBase = runGitCommand("git", ["merge-base", "HEAD", "origin/HEAD"], {
         encoding: "utf-8"
       }).trim();
       logger.debug(`merge-base result: ${mergeBase}`);
@@ -62909,16 +62989,10 @@ function getDefaultCompareRef() {
       logger.debug(`merge-base attempt failed: ${err}`);
     }
     try {
-      const commits = (0, import_node_child_process.execFileSync)("git", ["rev-list", "--max-count=2", "HEAD"], {
-        encoding: "utf-8"
-      }).trim().split(/\s+/).filter(Boolean);
-      if (commits.length > 1) {
-        return "HEAD~1";
-      }
-      logger.debug("No previous commit available for diffing");
-      return "";
+      runGitCommand("git", ["rev-parse", "--verify", "HEAD~1"], { stdio: "pipe" });
+      return "HEAD~1";
     } catch (err) {
-      logger.debug(`Previous commit lookup failed: ${err}`);
+      logger.debug(`HEAD~1 not available: ${err}`);
       return "";
     }
   } catch {
@@ -62935,18 +63009,18 @@ function getChangedFiles(ref) {
   }
   try {
     try {
-      (0, import_node_child_process.execFileSync)("git", ["rev-parse", "--verify", effectiveRef], { stdio: "pipe" });
+      runGitCommand("git", ["rev-parse", "--verify", effectiveRef], { stdio: "pipe" });
     } catch (err) {
       logger.debug(`Compare ref '${effectiveRef}' not found locally: ${err}`);
       logger.info(`Attempting to fetch compare ref '${effectiveRef}' from origin`);
       try {
-        (0, import_node_child_process.execFileSync)("git", ["fetch", "--no-tags", "--prune", "--depth=1", "origin", effectiveRef], {
+        runGitCommand("git", ["fetch", "--no-tags", "--prune", "--depth=1", "origin", effectiveRef], {
           stdio: "ignore"
         });
       } catch (err2) {
         logger.debug(`Fetching specific ref failed: ${err2}`);
         try {
-          (0, import_node_child_process.execFileSync)("git", ["fetch", "--no-tags", "--prune", "--depth=50", "origin"], {
+          runGitCommand("git", ["fetch", "--no-tags", "--prune", "--depth=50", "origin"], {
             stdio: "ignore"
           });
         } catch (err3) {
@@ -62954,16 +63028,50 @@ function getChangedFiles(ref) {
         }
       }
     }
-    const output = (0, import_node_child_process.execFileSync)("git", ["diff", "--name-only", effectiveRef, "HEAD"], {
+    const output = runGitCommand("git", ["diff", "--name-only", effectiveRef, "HEAD"], {
       encoding: "utf-8"
     });
     logger.debug(`git diff --name-only ${effectiveRef} HEAD output:
 ${output}`);
-    return output.trim().split("\n").filter(Boolean).filter(
+    const rawFiles = output.trim().split("\n").filter(Boolean);
+    if (isDebugLoggingEnabled()) {
+      logger.info("Raw changed files:");
+      rawFiles.forEach((file) => logger.info(`- ${file}`));
+    }
+    const filteredFiles = rawFiles.filter(
       (file) => !ignoredPaths.some((path2) => file.startsWith(path2)) && !isGeneratedFile(file)
     );
+    if (isDebugLoggingEnabled()) {
+      logger.info("Filtered changed files:");
+      filteredFiles.forEach((file) => logger.info(`- ${file}`));
+      const ignoredFiles = rawFiles.filter(
+        (file) => ignoredPaths.some((path2) => file.startsWith(path2)) || isGeneratedFile(file)
+      );
+      logger.info("Ignored:");
+      ignoredFiles.forEach((file) => logger.info(`- ${file}`));
+    }
+    return filteredFiles;
   } catch {
     return [];
+  }
+}
+function runGitCommand(command, args, options) {
+  if (isDebugLoggingEnabled()) {
+    logger.info(`[Context] Running: ${command} ${args.join(" ")}`);
+  }
+  try {
+    const result = (0, import_node_child_process2.execFileSync)(command, args, options);
+    if (isDebugLoggingEnabled()) {
+      logger.info(`[Context] Exit code: 0`);
+    }
+    return typeof result === "string" ? result : String(result);
+  } catch (error2) {
+    const message = error2 instanceof Error ? error2.message : String(error2);
+    if (isDebugLoggingEnabled()) {
+      logger.info(`[Context] Exit code: 1`);
+      logger.info(`[Context] stderr: ${message}`);
+    }
+    throw error2;
   }
 }
 function ensureCompareRef(ref) {
@@ -62975,27 +63083,23 @@ function ensureCompareRef(ref) {
     if (!target) {
       return "";
     }
-    const currentCommit = (0, import_node_child_process.execFileSync)("git", ["rev-parse", "HEAD"], {
+    const currentCommit = runGitCommand("git", ["rev-parse", "HEAD"], {
       encoding: "utf-8"
     }).trim();
-    const resolvedRef = (0, import_node_child_process.execFileSync)("git", ["rev-parse", "--verify", target], {
+    const resolvedRef = runGitCommand("git", ["rev-parse", target], {
       encoding: "utf-8"
     }).trim();
     if (resolvedRef === currentCommit) {
       logger.debug(`Compare ref '${target}' resolves to HEAD; using parent commit instead`);
       try {
-        (0, import_node_child_process.execFileSync)("git", ["rev-parse", "--verify", "HEAD^"], { stdio: "pipe" });
+        runGitCommand("git", ["rev-parse", "--verify", "HEAD^"], { stdio: "pipe" });
         return "HEAD^";
       } catch {
         return "HEAD~1";
       }
     }
     return target;
-  } catch (err) {
-    logger.debug(`Compare ref '${ref}' could not be resolved: ${err}`);
-    if (/[~^]/.test(ref)) {
-      return "";
-    }
+  } catch {
     return ref;
   }
 }
@@ -63008,7 +63112,7 @@ function getChangeType(file, ref) {
     return "added";
   }
   try {
-    const status = (0, import_node_child_process.execFileSync)("git", ["diff", "--name-status", effectiveRef, "HEAD", "--", file], {
+    const status = runGitCommand("git", ["diff", "--name-status", effectiveRef, "HEAD", "--", file], {
       encoding: "utf-8"
     }).trim();
     if (status.startsWith("A")) return "added";
@@ -63029,18 +63133,52 @@ function isGeneratedFile(filePath) {
 }
 
 // src/context/readme.ts
-var import_node_fs3 = require("fs");
+var import_node_fs4 = require("fs");
 function loadReadme(filePath = "README.md") {
-  if (!(0, import_node_fs3.existsSync)(filePath)) {
+  if (!(0, import_node_fs4.existsSync)(filePath)) {
     return "";
   }
-  return (0, import_node_fs3.readFileSync)(filePath, "utf-8");
+  return (0, import_node_fs4.readFileSync)(filePath, "utf-8");
 }
 
 // src/context/builder.ts
+var import_node_child_process3 = require("child_process");
+var import_node_fs5 = require("fs");
 function buildContext(readmeFilePath, compareRef) {
   const gitInfo = getGitInfo(compareRef);
   const readme = loadReadme(readmeFilePath);
+  if (isDebugLoggingEnabled()) {
+    const readmePath = readmeFilePath ?? "README.md";
+    const repoInfo = {
+      repositoryRoot: process.cwd(),
+      repositoryName: process.env.GITHUB_REPOSITORY?.split("/").pop() ?? "<unknown>",
+      branch: process.env.GITHUB_REF_NAME ?? "<unknown>",
+      headSha: process.env.GITHUB_SHA ?? void 0,
+      previousSha: void 0
+    };
+    try {
+      repoInfo.previousSha = (0, import_node_child_process3.execFileSync)("git", ["rev-parse", "HEAD~1"], {
+        encoding: "utf-8",
+        stdio: ["ignore", "pipe", "pipe"]
+      }).trim();
+    } catch {
+      repoInfo.previousSha = "<not available>";
+    }
+    let readmeSize = 0;
+    if ((0, import_node_fs5.existsSync)(readmePath)) {
+      readmeSize = (0, import_node_fs5.statSync)(readmePath).size;
+    }
+    logContextDebugInfo({
+      readmePath,
+      readme,
+      changedFiles: gitInfo.changedFiles,
+      summary: gitInfo.summary,
+      repoInfo: {
+        ...repoInfo,
+        readmeSize: String(readmeSize)
+      }
+    });
+  }
   return {
     readme,
     changedFiles: gitInfo.changedFiles,
@@ -63069,10 +63207,10 @@ async function updateReadme(readme, updatePrompt, geminiClient) {
 }
 
 // src/git/git.ts
-var import_node_child_process2 = require("child_process");
+var import_node_child_process4 = require("child_process");
 function branchExists(name) {
   try {
-    (0, import_node_child_process2.execSync)(`git rev-parse --verify ${name}`, { stdio: "pipe" });
+    (0, import_node_child_process4.execSync)(`git rev-parse --verify ${name}`, { stdio: "pipe" });
     return true;
   } catch {
     return false;
@@ -63080,33 +63218,33 @@ function branchExists(name) {
 }
 function createBranch(name) {
   if (branchExists(name)) {
-    (0, import_node_child_process2.execSync)(`git checkout ${name}`, { stdio: "inherit" });
+    (0, import_node_child_process4.execSync)(`git checkout ${name}`, { stdio: "inherit" });
   } else {
-    (0, import_node_child_process2.execSync)(`git checkout -b ${name}`, { stdio: "inherit" });
+    (0, import_node_child_process4.execSync)(`git checkout -b ${name}`, { stdio: "inherit" });
   }
 }
 function commit(message) {
-  (0, import_node_child_process2.execSync)('git config user.name "github-actions[bot]"', {
+  (0, import_node_child_process4.execSync)('git config user.name "github-actions[bot]"', {
     stdio: "pipe"
   });
-  (0, import_node_child_process2.execSync)(
+  (0, import_node_child_process4.execSync)(
     'git config user.email "41898282+github-actions[bot]@users.noreply.github.com"',
     { stdio: "pipe" }
   );
   try {
-    (0, import_node_child_process2.execSync)("git diff --quiet --exit-code", { stdio: "pipe" });
-    (0, import_node_child_process2.execSync)("git diff --cached --quiet --exit-code", {
+    (0, import_node_child_process4.execSync)("git diff --quiet --exit-code", { stdio: "pipe" });
+    (0, import_node_child_process4.execSync)("git diff --cached --quiet --exit-code", {
       stdio: "pipe"
     });
     return;
   } catch {
   }
-  (0, import_node_child_process2.execSync)("git add README.md", { stdio: "inherit" });
-  (0, import_node_child_process2.execSync)(`git commit -m "${message}"`, { stdio: "inherit" });
+  (0, import_node_child_process4.execSync)("git add README.md", { stdio: "inherit" });
+  (0, import_node_child_process4.execSync)(`git commit -m "${message}"`, { stdio: "inherit" });
 }
 function push(branch) {
   try {
-    (0, import_node_child_process2.execSync)(`git push -u origin ${branch}`, { stdio: "inherit" });
+    (0, import_node_child_process4.execSync)(`git push -u origin ${branch}`, { stdio: "inherit" });
   } catch (error2) {
     throw new Error(`Failed to push branch "${branch}": ${error2}`);
   }
@@ -67018,7 +67156,7 @@ async function main() {
     logger.logStep(`Creating branch: ${branch}`, "pending");
     createBranch(branch);
     logger.info("Writing updated README...");
-    (0, import_node_fs4.writeFileSync)("README.md", updatedReadme);
+    (0, import_node_fs6.writeFileSync)("README.md", updatedReadme);
     logger.logStep("Committing changes", "pending");
     commit(config.commitMessage);
     logger.logStep("Pushing branch", "pending");

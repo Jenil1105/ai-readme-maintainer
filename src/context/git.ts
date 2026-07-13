@@ -120,7 +120,7 @@ function getDefaultCompareRef(): string {
 
         // Last resort: compare to previous commit if available
         try {
-            runGitCommand("git", ["rev-parse", "--verify", "HEAD~1"], { stdio: "pipe" });
+            runGitCommand("git", ["rev-parse", "--verify", "--quiet", "HEAD~1"], { stdio: "pipe" });
             return "HEAD~1";
         } catch (err) {
             logger.debug(`HEAD~1 not available: ${err}`);
@@ -144,7 +144,7 @@ function getChangedFiles(ref: string): string[] {
     try {
         // Ensure the compare ref exists locally; if not, try to fetch it from origin
         try {
-            runGitCommand("git", ["rev-parse", "--verify", effectiveRef], { stdio: "pipe" });
+            runGitCommand("git", ["rev-parse", "--verify", "--quiet", effectiveRef], { stdio: "pipe" });
         } catch (err) {
             logger.debug(`Compare ref '${effectiveRef}' not found locally: ${err}`);
             logger.info(`Attempting to fetch compare ref '${effectiveRef}' from origin`);
@@ -240,14 +240,14 @@ function ensureCompareRef(ref: string): string {
         const currentCommit = runGitCommand("git", ["rev-parse", "HEAD"], {
             encoding: "utf-8",
         }).trim();
-        const resolvedRef = runGitCommand("git", ["rev-parse", target], {
+        const resolvedRef = runGitCommand("git", ["rev-parse", "--quiet", target], {
             encoding: "utf-8",
         }).trim();
 
         if (resolvedRef === currentCommit) {
             logger.debug(`Compare ref '${target}' resolves to HEAD; using parent commit instead`);
             try {
-                runGitCommand("git", ["rev-parse", "--verify", "HEAD^"], { stdio: "pipe" });
+                runGitCommand("git", ["rev-parse", "--verify", "--quiet", "HEAD^"], { stdio: "pipe" });
                 return "HEAD^";
             } catch {
                 return "HEAD~1";

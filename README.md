@@ -57,10 +57,10 @@ jobs:
 ### Required Inputs
 
 - **`gemini-api-key`** (string, required)  
-  Google Gemini API key for AI analysis. Get one from [Google AI Studio](https://aistudio.google.com/app/apikey)
+  Google Gemini API key. Get one from [Google AI Studio](https://aistudio.google.com/app/apikey)
 
 - **`github-token`** (string, required)  
-  GitHub token for creating pull requests. Use `${{ secrets.GITHUB_TOKEN }}`
+  GitHub token used to create branches and pull requests. Use `${{ secrets.GITHUB_TOKEN }}`
 
 ### Optional Inputs
 
@@ -68,13 +68,13 @@ jobs:
   Gemini model version to use for analysis
 
 - **`branch-prefix`** (string, default: `"readme-ai"`)  
-  Prefix for automatically created branches (e.g., `readme-ai/abc1234-1234567890`)
+  Prefix for the generated branch.
 
 - **`commit-message`** (string, default: `"docs: update README"`)  
   Message for the commit containing README changes
 
 - **`pr-title`** (string, default: `"docs: update README"`)  
-  Title for the created pull request
+  Title for the generated pull request.
 
 - **`base-branch`** (string, default: `"main"`)  
   Target branch for the pull request

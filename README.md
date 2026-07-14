@@ -3,7 +3,7 @@
 [![GitHub Action](https://img.shields.io/badge/action-AI%20README-blue?logo=github)](https://github.com/Jenil1105/ai-readme-maintainer)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen)](tests/)
 [![TypeScript](https://img.shields.io/badge/typescript-5.0%2B-blue)](tsconfig.json)
-[![License](https://img.shields.io/badge/license-ISC-blue)](LICENSE)
+[![License](https://img.shields.io/github/license/Jenil1105/ai-readme-maintainer)](LICENSE)
 
 Automatically analyze your repository changes and generate intelligent README updates using Google's Gemini AI. This GitHub Action detects when documentation updates are needed and creates pull requests with AI-generated changes.
 
@@ -18,6 +18,8 @@ Automatically analyze your repository changes and generate intelligent README up
 - **Well-Tested**: Comprehensive test suite for reliability
 
 ## Quick Start
+
+For a practical overview of usage expectations, limitations, and recommended workflow, see [USER_GUIDE.md](USER_GUIDE.md).
 
 ### Installation
 
@@ -40,9 +42,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Update README with AI
-        uses: Jenil1105/ai-readme-maintainer@v1
+        uses: Jenil1105/ai-readme-maintainer@v1.0.0-rc.1
         with:
           gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -53,10 +57,10 @@ jobs:
 ### Required Inputs
 
 - **`gemini-api-key`** (string, required)  
-  Google Gemini API key for AI analysis. Get one from [Google AI Studio](https://aistudio.google.com/app/apikey)
+  Google Gemini API key. Get one from [Google AI Studio](https://aistudio.google.com/app/apikey)
 
 - **`github-token`** (string, required)  
-  GitHub token for creating pull requests. Use `${{ secrets.GITHUB_TOKEN }}`
+  GitHub token used to create branches and pull requests. Use `${{ secrets.GITHUB_TOKEN }}`
 
 ### Optional Inputs
 
@@ -64,13 +68,13 @@ jobs:
   Gemini model version to use for analysis
 
 - **`branch-prefix`** (string, default: `"readme-ai"`)  
-  Prefix for automatically created branches (e.g., `readme-ai/abc1234-1234567890`)
+  Prefix for the generated branch.
 
 - **`commit-message`** (string, default: `"docs: update README"`)  
   Message for the commit containing README changes
 
 - **`pr-title`** (string, default: `"docs: update README"`)  
-  Title for the created pull request
+  Title for the generated pull request.
 
 - **`base-branch`** (string, default: `"main"`)  
   Target branch for the pull request
@@ -92,7 +96,7 @@ The action provides information through GitHub Actions logging:
 ### Basic Setup
 
 ```yaml
-- uses: Jenil1105/ai-readme-maintainer@v1
+- uses: Jenil1105/ai-readme-maintainer@v1.0.0-rc.1
   with:
     gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
     github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -101,7 +105,7 @@ The action provides information through GitHub Actions logging:
 ### Advanced Configuration
 
 ```yaml
-- uses: Jenil1105/ai-readme-maintainer@v1
+- uses: Jenil1105/ai-readme-maintainer@v1.0.0-rc.1
   with:
     gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
     github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -117,7 +121,7 @@ The action provides information through GitHub Actions logging:
 Preview changes without creating a pull request:
 
 ```yaml
-- uses: Jenil1105/ai-readme-maintainer@v1
+- uses: Jenil1105/ai-readme-maintainer@v1.0.0-rc.1
   with:
     gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
     github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -269,10 +273,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Update README
-        uses: Jenil1105/ai-readme-maintainer@v1
+        uses: Jenil1105/ai-readme-maintainer@v1.0.0-rc.1
         with:
           gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
           github-token: ${{ secrets.GITHUB_TOKEN }}

@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2026-07-09
+## [1.0.0] - 2026-07-14
 
 ### Added
 
@@ -130,27 +130,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Webhook integrations
 
 ---
-
-## Release Instructions
-
-To create a new release:
-
-```bash
-# Update version
-npm version patch|minor|major
-
-# Build
-npm run build
-
-# Commit and tag
-git add .
-git commit -m "release: vX.Y.Z"
-git tag -a vX.Y.Z -m "Version X.Y.Z"
-
-# Push
-git push origin main --tags
-```
-
----
-
-For detailed migration and upgrade information, see [UPGRADING.md](./UPGRADING.md).

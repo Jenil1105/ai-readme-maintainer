@@ -19,6 +19,8 @@ Automatically analyze your repository changes and generate intelligent README up
 
 ## Quick Start
 
+For a practical overview of usage expectations, limitations, and recommended workflow, see [USER_GUIDE.md](USER_GUIDE.md).
+
 ### Installation
 
 Add this action to your GitHub workflow:
@@ -40,6 +42,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Update README with AI
         uses: Jenil1105/ai-readme-maintainer@v1

@@ -210,30 +210,30 @@ Tests cover:
 
 ## How It Works
 
-1. **Analysis Phase**
-   - Collects changed files and diffs
-   - Loads current README
-   - Sends context to Gemini AI
+1.  **Analysis Phase**
+    - Collects changed files and diffs
+    - Loads current README
+    - Sends context to Gemini AI
 
-2. **Decision Phase**
-   - Gemini analyzes changes
-   - Determines if README update needed
-   - Returns reason and update instructions
+2.  **Decision Phase**
+    - Gemini analyzes changes
+    - Determines if README update needed
+    - Returns reason and update instructions
 
-3. **Update Phase**
-   - Generates updated README
-   - Validates Markdown integrity
-   - Checks for meaningful changes
+3.  **Update Phase**
+    - Generates updated README
+    - Validates Markdown integrity
+    - Checks for meaningful changes
 
-4. **Git Phase**
-   - Creates feature branch
-   - Commits changes
-   - Pushes to repository
+4.  **Git Phase**
+    - Creates feature branch
+    - Commits changes
+    - Pushes to repository
 
-5. **PR Phase**
-   - Creates pull request
-   - Includes analysis summary
-   - Ready for review
+5.  **PR Phase**
+    - Creates pull request
+    - Includes analysis summary
+    - Ready for review
 
 ## Error Handling
 
